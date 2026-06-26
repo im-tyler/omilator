@@ -21,7 +21,11 @@ enum class GameSystem(
     NINTENDO_DS("Nintendo DS", "Nintendo", 2004, listOf("nds", "ids", "app"), "melonds"),
     PSP("PlayStation Portable", "Sony", 2004, listOf("iso", "cso", "pbp", "prx", "elf"), "ppsspp"),
     GAMECUBE("Nintendo GameCube", "Nintendo", 2001, listOf("gcm", "iso", "gci", "ciso"), "dolphin"),
-    WII("Nintendo Wii", "Nintendo", 2006, listOf("wbfs", "iso", "wad", "gcz", "ciso"), "dolphin");
+    WII("Nintendo Wii", "Nintendo", 2006, listOf("wbfs", "iso", "wad", "gcz", "ciso"), "dolphin"),
+    NINTENDO_3DS("Nintendo 3DS", "Nintendo", 2011, listOf("3ds", "3dsx", "cci", "cxI", "cxi", "elf", "app"), "azahar"),
+    PLAYSTATION_2("PlayStation 2", "Sony", 2000, listOf("iso", "bin", "elf", "nrg", "mdf", "gz"), "play"),
+    DREAMCAST("Sega Dreamcast", "Sega", 1998, listOf("cdi", "gdi", "chd", "m3u", "gdl"), "flycast"),
+    SATURN("Sega Saturn", "Sega", 1994, listOf("cue", "iso", "bin", "chd", "m3u"), "mednafen_saturn");
 
     companion object {
         fun detectByExtension(extension: String): GameSystem? {

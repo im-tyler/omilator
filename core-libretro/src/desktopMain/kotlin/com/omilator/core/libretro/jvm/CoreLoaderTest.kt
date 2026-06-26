@@ -20,10 +20,12 @@ fun main() = runBlocking {
         CoreSpec("Mupen64Plus-Next",  "mupen64plus_next_libretro.dylib", "n64|z64|v64|ndd"),
         CoreSpec("Beetle PSX HW",     "beetle_psx_hw_libretro.dylib",    "exe|cue|toc|ccd|m3u|pbp|chd|bin|img|iso"),
         CoreSpec("PCSX ReARMed",      "pcsx_rearmed_libretro.dylib",     "bin|cue|img|mdf|pbp|toc|cbn|m3u|chd|iso|exe"),
-        CoreSpec("melonDS",           "melonds_libretro.dylib",          "nds|ids|app"),
-        // PPSSPP and Dolphin require SET_HW_RENDER (GL/Vulkan/Metal context).
-        // Software-render path hangs in retro_init. Excluded from the automated
-        // test until Omilator adds a HW render integration.
+        CoreSpec("melonDS",           "melonds_libretro.dylib",          "nds|ids|dsi"),
+        CoreSpec("Azahar (3DS)",      "azahar_libretro.dylib",           "3ds|3dsx|cci|cxi|app|elf"),
+        CoreSpec("Play! (PS2)",       "play_libretro.dylib",             "iso|bin|elf|nrg|mdf|gz"),
+        CoreSpec("flycast (DC)",      "flycast_libretro.dylib",          "gdi|cdi|chd|cue|gdl|m3u"),
+        CoreSpec("mednafen_saturn",   "mednafen_saturn_libretro.dylib",  "cue|chd|ccd|m3u|iso|bin"),
+        // PPSSPP and Dolphin still require SET_HW_RENDER (see HW render TODO).
     )
 
     val sysDir = File("build/omilator-sys").apply { mkdirs() }.absolutePath

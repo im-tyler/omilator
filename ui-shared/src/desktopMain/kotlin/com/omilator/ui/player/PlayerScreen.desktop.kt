@@ -225,13 +225,15 @@ private fun resolveCorePath(romPath: String): String {
         "md", "bin", "smd", "gen" -> "genesis_plus_gx_libretro"
         "n64", "z64", "v64" -> "mupen64plus_next_libretro"
         "cue", "chd", "m3u", "pbp", "img" -> "beetle_psx_hw_libretro"
-        "nds", "ids", "app" -> "melonds_libretro"
+        "nds", "ids" -> "melonds_libretro"
         "cso", "prx", "elf" -> "ppsspp_libretro"
         "gcm", "gci", "ciso" -> "dolphin_libretro"
         "wbfs", "wad", "gcz" -> "dolphin_libretro"
-        // .iso is ambiguous — PSP, GameCube, Wii, PS1 all use it. Prefer PS1
-        // (most common ISO usage in retro collections); player can rename or
-        // use cue/chd for unambiguous PS1.
+        "3ds", "3dsx", "cci", "cxi" -> "azahar_libretro"
+        "nrg", "mdf", "gz" -> "play_libretro"
+        "cdi", "gdi", "gdl" -> "flycast_libretro"
+        // .iso is ambiguous across PSP/GameCube/Wii/PS1/PS2/Dreamcast/Saturn.
+        // Caller should disambiguate via filename or system dir; default is PS1.
         "iso" -> "beetle_psx_hw_libretro"
         else -> "mgba_libretro"
     }
