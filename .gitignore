@@ -1,0 +1,53 @@
+# Gradle
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# Kotlin / Gradle build
+build/
+out/
+*.class
+*.jar
+!gradle-wrapper.jar
+*.kotlin_metadata
+
+# IntelliJ / Android Studio
+.idea/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Xcode (iOS app)
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcuserstate
+DerivedData/
+iOS Injection/
+
+# Native build artifacts
+*.dylib
+*.dll
+*.so
+*.o
+*.obj
+
+# Reference repos (study-only, never shipped)
+_reference/
+
+# Bundled libretro cores (regenerable, large)
+!core-libretro/native/libretro.h
+cores/
+
+# Local config / secrets
+local.properties
+.env
+*.keystore
+*.jks
+
+# Logs
+*.log

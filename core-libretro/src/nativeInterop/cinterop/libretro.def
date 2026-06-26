@@ -1,0 +1,6 @@
+package = com.omilator.core.libretro.native
+
+headers = libretro.h
+includeDirs = src/nativeInterop/cinterop
+
+compilerOpts = -DRetroArch=0
