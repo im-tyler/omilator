@@ -1,12 +1,11 @@
 package com.omilator.ui.library
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,22 +25,25 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -49,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.omilator.data.library.Game
 import com.omilator.data.library.GameSystem
+import androidx.compose.material3.OutlinedTextField
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,46 +60,48 @@ fun LibraryScreen(
     onAddDirectory: () -> Unit,
     onOpenGame: (String) -> Unit,
     onQuickPlay: () -> Unit = {},
+    onLaunchStandalone: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsState()
 
-    Scaffold(
-        topBar = {
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Header bar — large title + actions
             TopAppBar(
                 title = {
                     Text(
-                        "Omilator",
-                        style = MaterialTheme.typography.headlineMedium,
+                        "Library",
+                        style = MaterialTheme.typography.headlineLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
                 },
                 actions = {
+                    TextButton(onClick = onLaunchStandalone) { Text("Standalone") }
                     IconButton(onClick = onQuickPlay) {
                         Icon(Icons.Rounded.PlayArrow, contentDescription = "Open ROM file")
                     }
                     IconButton(onClick = { viewModel.rescan() }) {
-                        Icon(Icons.Rounded.Refresh, contentDescription = "Rescan library")
+                        Icon(Icons.Rounded.Refresh, contentDescription = "Rescan")
                     }
                     IconButton(onClick = onAddDirectory) {
-                        Icon(Icons.Rounded.Add, contentDescription = "Add ROM directory")
+                        Icon(Icons.Rounded.Add, contentDescription = "Add directory")
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                ),
             )
-        },
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-        ) {
-            SearchBar(
+
+            // Spotlight-style search pill
+            SearchPill(
                 query = state.searchQuery,
                 onQueryChange = viewModel::setSearch,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 20.dp, vertical = 4.dp),
             )
 
+            // System filter chips — modern pill style
             if (state.availableSystems.isNotEmpty()) {
                 SystemFilterRow(
                     systems = state.availableSystems,
@@ -110,7 +115,7 @@ fun LibraryScreen(
                     "Scan error: $err",
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                 )
             }
 
@@ -124,8 +129,9 @@ fun LibraryScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SearchBar(
+private fun SearchPill(
     query: String,
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -134,11 +140,30 @@ private fun SearchBar(
         value = query,
         onValueChange = onQueryChange,
         modifier = modifier,
-        placeholder = { Text("Search library...") },
-        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+        placeholder = {
+            Text(
+                "Search",
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            )
+        },
+        leadingIcon = {
+            Icon(
+                Icons.Rounded.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            )
+        },
         singleLine = true,
         shape = RoundedCornerShape(12.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            focusedBorderColor = Color.Transparent,
+            unfocusedBorderColor = Color.Transparent,
+            focusedLeadingIconColor = MaterialTheme.colorScheme.primary,
+        ),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        textStyle = MaterialTheme.typography.bodyLarge,
     )
 }
 
@@ -150,7 +175,7 @@ private fun SystemFilterRow(
 ) {
     LazyRow(
         modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
@@ -158,13 +183,21 @@ private fun SystemFilterRow(
                 selected = selected == null,
                 onClick = { onSelect(null) },
                 label = { Text("All") },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                    selectedLabelColor = MaterialTheme.colorScheme.primary,
+                ),
             )
         }
         items(systems) { system ->
             FilterChip(
                 selected = selected == system,
                 onClick = { onSelect(system) },
-                label = { Text(system.displayName) },
+                label = { Text(system.shortLabel()) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                    selectedLabelColor = MaterialTheme.colorScheme.primary,
+                ),
             )
         }
     }
@@ -173,42 +206,68 @@ private fun SystemFilterRow(
 @Composable
 private fun LoadingState() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(
-            "Scanning library...",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            CircularProgressIndicator(
+                color = MaterialTheme.colorScheme.primary,
+                strokeWidth = 2.dp,
+                modifier = Modifier.size(28.dp),
+            )
+            Text(
+                "Scanning library",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
 @Composable
 private fun EmptyState(onAddDirectory: () -> Unit, onQuickPlay: () -> Unit) {
-    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Box(Modifier.fillMaxSize().padding(48.dp), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            // Large glyph-style emoji-free icon — use a stylized text char
             Text(
-                "No games yet",
+                "○",
+                style = MaterialTheme.typography.displayLarge,
+                color = MaterialTheme.colorScheme.outline,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Your library is empty",
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground,
+                fontWeight = FontWeight.SemiBold,
             )
             Text(
-                "Add a directory of ROMs to begin, or open a single ROM to play immediately.",
+                "Add a directory of ROMs to begin, or open a single file.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp),
             )
-            Row(
-                modifier = Modifier.padding(top = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            Spacer(Modifier.height(20.dp))
+            androidx.compose.foundation.layout.Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 AssistChip(
                     onClick = onAddDirectory,
                     label = { Text("Add directory") },
                     leadingIcon = { Icon(Icons.Rounded.Add, contentDescription = null) },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    ),
                 )
                 AssistChip(
                     onClick = onQuickPlay,
                     label = { Text("Open ROM") },
                     leadingIcon = { Icon(Icons.Rounded.PlayArrow, contentDescription = null) },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    ),
                 )
             }
         }
@@ -218,11 +277,21 @@ private fun EmptyState(onAddDirectory: () -> Unit, onQuickPlay: () -> Unit) {
 @Composable
 private fun NoMatchesState() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(
-            "No games match your search",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                "No matches",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                "Try a different search or system filter.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -232,14 +301,34 @@ private fun GridState(
     onOpenGame: (String) -> Unit,
 ) {
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = 170.dp),
+        columns = GridCells.Adaptive(minSize = 180.dp),
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 32.dp),
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         items(games, key = { it.id }) { game ->
             GameCard(game = game, onClick = { onOpenGame(game.filePath) })
         }
     }
+}
+
+// Used by GameCard — short label per system
+internal fun GameSystem.shortLabel(): String = when (this) {
+    GameSystem.NES -> "NES"
+    GameSystem.SNES -> "SNES"
+    GameSystem.GAME_BOY -> "GB"
+    GameSystem.GAME_BOY_COLOR -> "GBC"
+    GameSystem.GAME_BOY_ADVANCE -> "GBA"
+    GameSystem.GENESIS -> "MD"
+    GameSystem.NINTENDO_64 -> "N64"
+    GameSystem.PLAYSTATION -> "PS1"
+    GameSystem.NINTENDO_DS -> "DS"
+    GameSystem.PSP -> "PSP"
+    GameSystem.GAMECUBE -> "GC"
+    GameSystem.WII -> "Wii"
+    GameSystem.NINTENDO_3DS -> "3DS"
+    GameSystem.PLAYSTATION_2 -> "PS2"
+    GameSystem.DREAMCAST -> "DC"
+    GameSystem.SATURN -> "SAT"
 }

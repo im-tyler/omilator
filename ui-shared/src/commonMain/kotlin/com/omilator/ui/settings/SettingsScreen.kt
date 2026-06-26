@@ -2,6 +2,7 @@ package com.omilator.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -9,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
@@ -21,13 +21,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.omilator.data.settings.AppTheme
@@ -71,25 +71,47 @@ fun SettingsScreen(
     val state by viewModel.state.collectAsState()
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
             Text(
                 "Settings",
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(vertical = 8.dp),
             )
         }
 
         item {
             SettingsCard(title = "Appearance") {
-                ThemeRow(
-                    current = state.theme,
-                    onSelect = viewModel::setTheme,
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    AppTheme.entries.forEach { theme ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                theme.displayName(),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Switch(
+                                checked = state.theme == theme,
+                                onCheckedChange = { if (it) viewModel.setTheme(theme) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -109,7 +131,7 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         state.libraryDirectories.forEach { dir ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -119,7 +141,7 @@ fun SettingsScreen(
                                 Text(
                                     dir,
                                     style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.padding(vertical = 8.dp).weight(1f),
+                                    modifier = Modifier.padding(vertical = 10.dp).weight(1f),
                                     color = MaterialTheme.colorScheme.onSurface,
                                 )
                                 IconButton(onClick = { viewModel.removeDirectory(dir) }) {
@@ -130,7 +152,7 @@ fun SettingsScreen(
                                     )
                                 }
                             }
-                            HorizontalDivider()
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         }
                     }
                 }
@@ -140,9 +162,10 @@ fun SettingsScreen(
         item {
             SettingsCard(title = "About") {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    SettingLine("Omilator", "0.1.0 (Phase 3)")
+                    SettingLine("Omilator", "0.2.0")
                     SettingLine("Engine", "Kotlin Multiplatform + Compose")
                     SettingLine("Cores", "libretro via FFM")
+                    SettingLine("Bridge", "C log bridge + GL HW render")
                 }
             }
         }
@@ -159,8 +182,9 @@ private fun SettingsCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(18.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -174,30 +198,8 @@ private fun SettingsCard(
                 )
                 trailing?.invoke()
             }
-            content()
-        }
-    }
-}
-
-@Composable
-private fun ThemeRow(
-    current: AppTheme,
-    onSelect: (AppTheme) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        AppTheme.entries.forEach { theme ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Switch(
-                    checked = current == theme,
-                    onCheckedChange = { if (it) onSelect(theme) },
-                )
-                Text(theme.name.lowercase().replaceFirstChar { it.uppercase() })
+            Box(modifier = Modifier.padding(top = 10.dp)) {
+                content()
             }
         }
     }
@@ -220,4 +222,10 @@ private fun SettingLine(label: String, value: String) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+private fun AppTheme.displayName(): String = when (this) {
+    AppTheme.SYSTEM -> "Match system"
+    AppTheme.LIGHT -> "Light"
+    AppTheme.DARK -> "Dark"
 }

@@ -18,6 +18,7 @@ kotlin {
                 implementation(project(":core-libretro"))
                 implementation(project(":data-library"))
                 implementation(project(":data-settings"))
+                implementation(project(":data-launcher"))
                 implementation(compose.desktop.currentOs)
                 implementation(libs.kotlinx.coroutines.swing)
             }

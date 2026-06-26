@@ -21,6 +21,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import com.omilator.data.launcher.StandaloneRegistry
 import com.omilator.data.library.JvmLibraryScanner
 import com.omilator.data.library.LibraryRepository
 import com.omilator.data.settings.SettingsStore
@@ -94,12 +95,100 @@ fun main() = application {
                 libraryViewModel = libraryViewModel,
                 settingsViewModel = settingsViewModel,
                 onAddRomDirectory = onAddRomDirectory,
-                onPlayRom = { path -> playing = path },
+                onPlayRom = { path -> playRom(path) { romPath -> playing = romPath } },
                 onQuickPlay = {
-                    pickRomFile()?.let { path -> playing = path }
+                    pickRomFile()?.let { path -> playRom(path) { romPath -> playing = romPath } }
+                },
+                onLaunchStandalone = {
+                    pickRomFile()?.let { path -> launchStandalone(path) }
                 },
             )
         }
+    }
+}
+
+/**
+ * Smart play: macOS blocks libretro HW render for PSP/GameCube/Wii
+ * (GLFW main-thread conflict). For these systems:
+ *   - If standalone installed → launch it
+ *   - If not installed → show error dialog (do NOT attempt libretro,
+ *     which would SIGBUS the JVM)
+ * For all other systems → use libretro via the in-process player.
+ */
+private fun playRom(romPath: String, useLibretro: (String) -> Unit) {
+    val ext = File(romPath).extension.lowercase()
+    val blockedSystemId = when (ext) {
+        "iso", "cso", "prx" -> "psp"
+        "wbfs", "gcz", "wad", "gcm" -> "gamecube_wii"
+        else -> null
+    }
+    if (blockedSystemId == null) {
+        // Not a HW-render-blocked system — use libretro
+        useLibretro(romPath)
+        return
+    }
+    val registry = StandaloneRegistry()
+    val standalone = registry.forSystem(blockedSystemId)
+    if (standalone != null) {
+        println("[Omilator] Routing $ext to ${standalone.displayName} (standalone)")
+        standalone.launch(romPath)
+    } else {
+        // HW-render-blocked system with no standalone installed.
+        // Show error instead of crashing the JVM via libretro+GLFW.
+        val appName = when (blockedSystemId) {
+            "psp" -> "PPSSPP"
+            "gamecube_wii" -> "Dolphin"
+            "ps3" -> "RPCS3"
+            "wii_u" -> "Cemu"
+            "xbox" -> "xemu"
+            else -> "the standalone emulator"
+        }
+        val url = when (blockedSystemId) {
+            "psp" -> "https://ppsspp.org/downloads"
+            "gamecube_wii" -> "https://dolphin-emu.org/download/"
+            "ps3" -> "https://rpcs3.net/download"
+            "wii_u" -> "https://cemu.info/releases/"
+            "xbox" -> "https://xemu.app/releases/"
+            else -> ""
+        }
+        println("[Omilator] BLOCKED: $blockedSystemId requires $appName (not installed)")
+        println("[Omilator]   Install: $url")
+        // Defer showing a dialog — for now just print.
+        // TODO: surface as a Compose dialog.
+    }
+}
+
+/**
+ * Pick a ROM, detect its system, find a matching standalone backend,
+ * and launch it. If no backend is installed for the system, prints to
+ * stderr so the user knows which app to install.
+ */
+private fun launchStandalone(romPath: String) {
+    val ext = File(romPath).extension.lowercase()
+    val systemId = when (ext) {
+        "iso" -> "psp"  // assume PSP for ISOs (most common modern-retro ISO)
+        "cso", "prx" -> "psp"
+        "wbfs", "gcz", "wad" -> "gamecube_wii"
+        "gcm" -> "gamecube_wii"
+        "pkg", "rap" -> "ps3"
+        "wud", "wux" -> "wii_u"
+        "xiso" -> "xbox"
+        else -> null
+    }
+    if (systemId == null) {
+        println("[Omilator] No standalone backend mapping for .$ext files")
+        return
+    }
+    val backend = StandaloneRegistry().forSystem(systemId)
+    if (backend == null) {
+        println("[Omilator] No standalone backend installed for $systemId")
+        println("[Omilator]   Install one of: PPSSPP (PSP), Dolphin (GC/Wii), RPCS3 (PS3), Cemu (Wii U), xemu (Xbox)")
+        return
+    }
+    println("[Omilator] Launching ${backend.displayName} for $romPath")
+    val proc = backend.launch(romPath)
+    if (proc == null) {
+        println("[Omilator] ${backend.displayName} launch failed")
     }
 }
 

@@ -1,15 +1,16 @@
 package com.omilator.ui.library
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -17,11 +18,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -34,18 +39,43 @@ fun GameCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {},
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isHovered) 1.04f else 1f,
+        animationSpec = tween(durationMillis = 180),
+        label = "cardScale",
+    )
+    val elevation by animateFloatAsState(
+        targetValue = if (isHovered) 24f else 6f,
+        animationSpec = tween(durationMillis = 180),
+        label = "cardElevation",
+    )
+
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick),
+            .hoverable(interactionSource)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            )
+            .graphicsLayerSafeScale(scale),
     ) {
+        // Cover-art pane — 3:4 aspect, like Apple TV / Photos app
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(0.75f)
-                .clip(RoundedCornerShape(12.dp))
+                .aspectRatio(0.72f)
+                .shadow(
+                    elevation = elevation.dp,
+                    shape = RoundedCornerShape(14.dp),
+                    ambientColor = Color.Black.copy(alpha = 0.5f),
+                    spotColor = Color.Black.copy(alpha = 0.6f),
+                )
+                .clip(RoundedCornerShape(14.dp))
                 .background(
-                    Brush.verticalGradient(
+                    Brush.linearGradient(
                         colors = listOf(
                             coverTopFor(game.system),
                             coverBottomFor(game.system),
@@ -54,28 +84,13 @@ fun GameCard(
                 ),
             contentAlignment = Alignment.BottomStart,
         ) {
-            Row(
-                modifier = Modifier.padding(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color.Black.copy(alpha = 0.45f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                ) {
-                    Text(
-                        text = game.system.shortLabel(),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
-            }
+            SystemBadge(
+                system = game.system,
+                modifier = Modifier.padding(10.dp),
+            )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         Text(
             text = game.title,
@@ -83,30 +98,37 @@ fun GameCard(
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            lineHeight = MaterialTheme.typography.titleMedium.lineHeight,
+            fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(horizontal = 2.dp),
         )
     }
 }
 
-private fun GameSystem.shortLabel(): String = when (this) {
-    GameSystem.NES -> "NES"
-    GameSystem.SNES -> "SNES"
-    GameSystem.GAME_BOY -> "GB"
-    GameSystem.GAME_BOY_COLOR -> "GBC"
-    GameSystem.GAME_BOY_ADVANCE -> "GBA"
-    GameSystem.GENESIS -> "MD"
-    GameSystem.NINTENDO_64 -> "N64"
-    GameSystem.PLAYSTATION -> "PS1"
-    GameSystem.NINTENDO_DS -> "DS"
-    GameSystem.PSP -> "PSP"
-    GameSystem.GAMECUBE -> "GC"
-    GameSystem.WII -> "Wii"
-    GameSystem.NINTENDO_3DS -> "3DS"
-    GameSystem.PLAYSTATION_2 -> "PS2"
-    GameSystem.DREAMCAST -> "DC"
-    GameSystem.SATURN -> "SAT"
+@Composable
+private fun SystemBadge(
+    system: GameSystem,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(Color.Black.copy(alpha = 0.45f))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+    ) {
+        Text(
+            text = system.shortLabel(),
+            style = MaterialTheme.typography.labelMedium,
+            color = Color.White,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
 }
+
+// Helper to apply scale cleanly
+private fun Modifier.graphicsLayerSafeScale(scale: Float): Modifier =
+    this.graphicsLayer(scaleX = scale, scaleY = scale)
+
+// shortLabel() is defined in LibraryScreen.kt and shared via internal visibility.
 
 private fun coverTopFor(system: GameSystem): Color = when (system) {
     GameSystem.NES -> Color(0xFFB23A48)
