@@ -64,3 +64,16 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 }
+
+tasks.register<JavaExec>("phase1Verify") {
+    group = "verification"
+    description = "Run Phase 1 libretro FFM bridge verification"
+
+    val desktopTarget = kotlin.targets.getByName("desktop")
+    val desktopCompilation = desktopTarget.compilations.getByName("main") as org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJvmCompilation
+
+    classpath = desktopCompilation.output.allOutputs + desktopCompilation.compileDependencyFiles
+    mainClass.set("com.omilator.core.libretro.jvm.Phase1VerificationKt")
+    workingDir = rootProject.projectDir
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+}
