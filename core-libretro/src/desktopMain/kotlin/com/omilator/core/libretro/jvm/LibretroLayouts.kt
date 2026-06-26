@@ -45,6 +45,7 @@ internal object LibretroLayouts {
 
 internal object RetroEnv {
     const val GET_API_VERSION = 0
+    const val GET_LOG_INTERFACE = 6
     const val GET_SYSTEM_DIRECTORY = 9
     const val GET_SAVE_DIRECTORY = 31
     const val SET_PIXEL_FORMAT = 10
@@ -63,6 +64,11 @@ internal object RetroEnv {
     const val GET_INPUT_BITMASKS = 51
     const val SET_HW_RENDER = 14
     const val GET_PREFERRED_HW_RENDER = 36
+    const val GET_AUDIO_VIDEO_ENABLE = 69
+    const val GET_RUMBLE_INTERFACE = 27
+    const val GET_CAMERA_DRIVER = 38
+    const val GET_TARGET_REFRESH_RATE = 59
+    const val SET_SUPPORT_ACHIEVEMENTS = 38 // alias — both used as 38 by different cores
 }
 
 internal object PixelFormatC {

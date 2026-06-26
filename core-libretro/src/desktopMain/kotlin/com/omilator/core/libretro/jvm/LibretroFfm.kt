@@ -51,6 +51,7 @@ internal class LibretroFfm(
     private var unserializeHandle: MethodHandle? = null
 
     private val systemDirSeg = arena.allocateUtf8String(systemDirectory)
+    private val logCbStruct by lazy { allocateLogCallbackStruct() }
 
     fun loadCore(path: String) {
         val sym = SymbolLookup.libraryLookup(path, arena)
@@ -208,7 +209,7 @@ internal class LibretroFfm(
 
     @Suppress("unused")
     fun onEnvironment(cmd: Int, data: MemorySegment): Boolean {
-        return when (cmd) {
+        val handled = when (cmd) {
             RetroEnv.SET_PIXEL_FORMAT -> {
                 pixelFormat = data.reinterpret(4L).get(ValueLayout.JAVA_INT, 0)
                 true
@@ -220,10 +221,74 @@ internal class LibretroFfm(
             }
             RetroEnv.GET_LIBRETRO_PATH,
             RetroEnv.GET_API_VERSION,
-            RetroEnv.GET_INPUT_BITMASKS -> true
+            RetroEnv.GET_INPUT_BITMASKS,
+            RetroEnv.GET_AUDIO_VIDEO_ENABLE -> true
+            RetroEnv.GET_LOG_INTERFACE -> {
+                // Provide a retro_log_callback struct (just a function pointer).
+                // PPSSPP and others crash if they store null then call it.
+                data.reinterpret(8L).set(ValueLayout.ADDRESS, 0, logCbStruct)
+                true
+            }
+            RetroEnv.GET_RUMBLE_INTERFACE,
+            RetroEnv.GET_CAMERA_DRIVER,
+            RetroEnv.GET_TARGET_REFRESH_RATE,
+            RetroEnv.SET_HW_RENDER,
+            RetroEnv.GET_PREFERRED_HW_RENDER -> {
+                val ctxType = if (cmd == RetroEnv.SET_HW_RENDER && data.address() != 0L) {
+                    runCatching { data.reinterpret(4L).get(ValueLayout.JAVA_INT, 0) }.getOrDefault(-1)
+                } else -1
+                if (cmd == RetroEnv.SET_HW_RENDER) {
+                    val typeName = when (ctxType) {
+                        1 -> "OPENGL"; 2 -> "OPENGLES"; 3 -> "OPENGL_CORE"
+                        6 -> "VULKAN"; 12 -> "METAL"; else -> "?"
+                    }
+                    println("[Omilator] core requested HW_RENDER ctx=$typeName — declining")
+                }
+                false
+            }
             else -> false
         }
+        if (!handled && cmd !in silentEnvCmds) {
+            println("[Omilator] env cmd $cmd unhandled (declining)")
+        }
+        return handled
     }
+
+    private fun allocateLogCallbackStruct(): MemorySegment {
+        // retro_log_callback { retro_log_printf_t log; }
+        // Provide a stub that swallows varargs safely (C calling convention
+        // allows extra args in registers/stack that we just don't read).
+        val stub = upcallBound(
+            "onLog",
+            MethodType.methodType(Void::class.javaPrimitiveType, Int::class.javaPrimitiveType, MemorySegment::class.java),
+            FunctionDescriptor.ofVoid(ValueLayout.JAVA_INT, ValueLayout.ADDRESS),
+        )
+        val struct = arena.allocate(8L)
+        struct.set(ValueLayout.ADDRESS, 0, stub)
+        return struct
+    }
+
+    @Suppress("unused")
+    fun onLog(level: Int, fmt: MemorySegment) {
+        if (fmt.address() == 0L) return
+        val msg = fmt.reinterpret(8192L).getUtf8String(0)
+        // Strip trailing newline if present
+        print("[core/log] $msg" + if (!msg.endsWith("\n")) "\n" else "")
+    }
+
+    private val silentEnvCmds = setOf(
+        RetroEnv.GET_VARIABLE,
+        RetroEnv.SET_VARIABLES,
+        RetroEnv.SET_INPUT_DESCRIPTORS,
+        RetroEnv.SET_CONTROLLER_INFO,
+        RetroEnv.GET_VARIABLE_UPDATE,
+        RetroEnv.GET_CORE_OPTIONS_VERSION,
+        RetroEnv.SET_CORE_OPTIONS,
+        RetroEnv.GET_CORE_OPTIONS_UPDATE,
+        RetroEnv.SET_FRAME_TIME_CALLBACK,
+        RetroEnv.SET_AUDIO_CALLBACK,
+        RetroEnv.GET_INPUT_INTERFACE,
+    )
 
     @Suppress("unused")
     fun onVideo(data: MemorySegment, width: Int, height: Int, pitch: Long) {

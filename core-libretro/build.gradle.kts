@@ -116,3 +116,16 @@ tasks.register<JavaExec>("coreLoaderTest") {
     workingDir = rootProject.projectDir
     jvmArgs("--enable-native-access=ALL-UNNAMED")
 }
+
+tasks.register<JavaExec>("hwRenderProbe") {
+    group = "verification"
+    description = "Probe PPSSPP/Dolphin for HW render env requirements"
+
+    val desktopTarget = kotlin.targets.getByName("desktop")
+    val desktopCompilation = desktopTarget.compilations.getByName("main") as org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJvmCompilation
+
+    classpath = desktopCompilation.output.allOutputs + desktopCompilation.compileDependencyFiles
+    mainClass.set("com.omilator.core.libretro.jvm.HwRenderProbeKt")
+    workingDir = rootProject.projectDir
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+}
