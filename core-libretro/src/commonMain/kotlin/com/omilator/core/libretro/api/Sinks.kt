@@ -1,14 +1,14 @@
 package com.omilator.core.libretro.api
 
-interface VideoSink {
+fun interface VideoSink {
     fun onFrame(framebuffer: Framebuffer)
 }
 
-interface AudioSink {
+fun interface AudioSink {
     fun onSamples(samples: ShortArray)
 }
 
-interface InputSource {
+fun interface InputSource {
     fun poll(port: Int, device: InputDevice, index: Int, id: Int): Int
 }
 

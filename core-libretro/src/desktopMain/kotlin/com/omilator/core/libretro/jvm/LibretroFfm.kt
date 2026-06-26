@@ -186,12 +186,21 @@ internal class LibretroFfm(
 
     @Suppress("unused")
     fun onVideo(data: MemorySegment, width: Int, height: Int, pitch: Long) {
-        onVideo?.invoke(data, width, height, pitch)
+        if (data.address() == 0L || width <= 0 || height <= 0) {
+            onVideo?.invoke(data, width, height, pitch)
+            return
+        }
+        val size = height.toLong() * pitch
+        val sized = data.reinterpret(size)
+        onVideo?.invoke(sized, width, height, pitch)
     }
 
     @Suppress("unused")
     fun onAudioBatch(data: MemorySegment, frames: Long): Long {
-        return onAudioBatch?.invoke(data, frames) ?: frames
+        if (data.address() == 0L || frames <= 0L) return frames
+        val bytes = frames * 2L * 2L // stereo 16-bit
+        val sized = data.reinterpret(bytes)
+        return onAudioBatch?.invoke(sized, frames) ?: frames
     }
 
     @Suppress("unused")

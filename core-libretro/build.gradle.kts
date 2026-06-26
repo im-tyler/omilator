@@ -77,3 +77,16 @@ tasks.register<JavaExec>("phase1Verify") {
     workingDir = rootProject.projectDir
     jvmArgs("--enable-native-access=ALL-UNNAMED")
 }
+
+tasks.register<JavaExec>("phase2Verify") {
+    group = "verification"
+    description = "Run Phase 2 video rendering verification"
+
+    val desktopTarget = kotlin.targets.getByName("desktop")
+    val desktopCompilation = desktopTarget.compilations.getByName("main") as org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJvmCompilation
+
+    classpath = desktopCompilation.output.allOutputs + desktopCompilation.compileDependencyFiles
+    mainClass.set("com.omilator.core.libretro.jvm.Phase2VerificationKt")
+    workingDir = rootProject.projectDir
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+}

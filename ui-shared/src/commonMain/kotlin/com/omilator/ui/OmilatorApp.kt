@@ -34,6 +34,8 @@ enum class OmilatorDestination { LIBRARY, SETTINGS }
 @Composable
 fun OmilatorApp(
     libraryScanner: LibraryScanner,
+    onPlayRom: (String) -> Unit = {},
+    onPickRomFile: () -> String? = { null },
 ) {
     OmilatorTheme {
         val windowClass = currentWindowSizeClass()
@@ -49,7 +51,7 @@ fun OmilatorApp(
                     NavigationRailItem(
                         selected = destination == OmilatorDestination.LIBRARY,
                         onClick = { destination = OmilatorDestination.LIBRARY },
-                            icon = { Icon(Icons.AutoMirrored.Rounded.List, contentDescription = "Library") },
+                        icon = { Icon(Icons.AutoMirrored.Rounded.List, contentDescription = "Library") },
                         label = { Text("Library") },
                     )
                     NavigationRailItem(
@@ -62,8 +64,8 @@ fun OmilatorApp(
                 when (destination) {
                     OmilatorDestination.LIBRARY -> LibraryScreen(
                         viewModel = viewModel,
-                        onAddDirectory = { /* TODO: file picker */ },
-                        onOpenGame = { /* TODO: launch player */ },
+                        onAddDirectory = { onPickRomFile()?.let(onPlayRom) },
+                        onOpenGame = onPlayRom,
                     )
                     OmilatorDestination.SETTINGS -> SettingsScreen()
                 }
@@ -75,7 +77,7 @@ fun OmilatorApp(
                         NavigationBarItem(
                             selected = destination == OmilatorDestination.LIBRARY,
                             onClick = { destination = OmilatorDestination.LIBRARY },
-                        icon = { Icon(Icons.AutoMirrored.Rounded.List, contentDescription = "Library") },
+                            icon = { Icon(Icons.AutoMirrored.Rounded.List, contentDescription = "Library") },
                             label = { Text("Library") },
                         )
                         NavigationBarItem(
@@ -91,8 +93,8 @@ fun OmilatorApp(
                     when (destination) {
                         OmilatorDestination.LIBRARY -> LibraryScreen(
                             viewModel = viewModel,
-                            onAddDirectory = { /* TODO: file picker */ },
-                            onOpenGame = { /* TODO: launch player */ },
+                            onAddDirectory = { onPickRomFile()?.let(onPlayRom) },
+                            onOpenGame = onPlayRom,
                         )
                         OmilatorDestination.SETTINGS -> SettingsScreen()
                     }
