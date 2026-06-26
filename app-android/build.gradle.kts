@@ -14,6 +14,8 @@ kotlin {
         androidMain.dependencies {
             implementation(project(":ui-shared"))
             implementation(project(":core-libretro"))
+            implementation(project(":data-library"))
+            implementation(project(":data-settings"))
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
@@ -36,10 +38,27 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0"
+
+        externalNativeBuild {
+            cmake {
+                cppFlags += "-std=c++17"
+                arguments += "-DANDROID_STL=c++_static"
+            }
+        }
+        ndk {
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
     }
 
     buildFeatures {
         compose = true
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/androidMain/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     compileOptions {
