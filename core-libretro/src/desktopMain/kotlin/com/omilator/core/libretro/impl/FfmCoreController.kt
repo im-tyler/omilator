@@ -108,8 +108,29 @@ internal class FfmCoreController(
         inputSource = null
     }
 
-    override fun saveState(path: String): Boolean = false
-    override fun loadState(path: String): Boolean = false
+    override fun saveState(path: String): Boolean {
+        val n = native ?: return false
+        return try {
+            val bytes = n.callSerialize()
+            java.io.File(path).writeBytes(bytes)
+            true
+        } catch (t: Throwable) {
+            false
+        }
+    }
+
+    override fun loadState(path: String): Boolean {
+        val n = native ?: return false
+        return try {
+            val file = java.io.File(path)
+            if (!file.exists()) return false
+            val bytes = file.readBytes()
+            n.callUnserialize(bytes)
+        } catch (t: Throwable) {
+            false
+        }
+    }
+
     override fun readMemory(region: UInt, offset: UInt, size: UInt): ByteArray = ByteArray(size.toInt())
     override fun writeMemory(region: UInt, offset: UInt, data: ByteArray) {}
 

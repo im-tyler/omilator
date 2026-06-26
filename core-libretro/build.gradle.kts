@@ -90,3 +90,16 @@ tasks.register<JavaExec>("phase2Verify") {
     workingDir = rootProject.projectDir
     jvmArgs("--enable-native-access=ALL-UNNAMED")
 }
+
+tasks.register<JavaExec>("phase5Verify") {
+    group = "verification"
+    description = "Run Phase 5 save state verification"
+
+    val desktopTarget = kotlin.targets.getByName("desktop")
+    val desktopCompilation = desktopTarget.compilations.getByName("main") as org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJvmCompilation
+
+    classpath = desktopCompilation.output.allOutputs + desktopCompilation.compileDependencyFiles
+    mainClass.set("com.omilator.core.libretro.jvm.Phase5VerificationKt")
+    workingDir = rootProject.projectDir
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+}

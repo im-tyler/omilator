@@ -31,6 +31,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.nativeKeyCode
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import java.io.File
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.omilator.core.audio.createAudioOutputFactory
@@ -91,12 +92,32 @@ fun PlayerScreen(
             .focusable()
             .onKeyEvent { event ->
                 val keyCode = event.key.nativeKeyCode
-                val button = KeyboardMapping.buttonFor(keyCode) ?: return@onKeyEvent false
-                when (event.type) {
-                    KeyEventType.KeyDown -> engine.pressButton(button)
-                    KeyEventType.KeyUp -> engine.releaseButton(button)
+                val button = KeyboardMapping.buttonFor(keyCode)
+                if (button != null) {
+                    when (event.type) {
+                        KeyEventType.KeyDown -> engine.pressButton(button)
+                        KeyEventType.KeyUp -> engine.releaseButton(button)
+                    }
+                    return@onKeyEvent true
                 }
-                true
+                if (event.type == KeyEventType.KeyUp) {
+                    val saveDir = File(System.getProperty("user.home"), "Library/Application Support/Omilator/saves")
+                    if (!saveDir.exists()) saveDir.mkdirs()
+                    val romBase = File(gameId).nameWithoutExtension
+                    when (keyCode) {
+                        java.awt.event.KeyEvent.VK_F5 -> {
+                            val path = File(saveDir, "$romBase.state").absolutePath
+                            engine.saveState(path)
+                            true
+                        }
+                        java.awt.event.KeyEvent.VK_F8 -> {
+                            val path = File(saveDir, "$romBase.state").absolutePath
+                            engine.loadState(path)
+                            true
+                        }
+                        else -> false
+                    }
+                } else false
             },
         contentAlignment = Alignment.Center,
     ) {

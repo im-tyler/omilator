@@ -80,6 +80,10 @@ class PlayerEngine(
         inputState.release(button)
     }
 
+    fun saveState(path: String): Boolean = controller.saveState(path)
+
+    fun loadState(path: String): Boolean = controller.loadState(path)
+
     fun renderFrameIfAvailable(): BufferedImage? {
         val fb = latestFrame.getAndSet(null) ?: return null
         return converter.convert(fb)

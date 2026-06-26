@@ -46,6 +46,9 @@ internal class LibretroFfm(
     private var unloadGameHandle: MethodHandle? = null
     private var runHandle: MethodHandle? = null
     private var resetHandle: MethodHandle? = null
+    private var serializeSizeHandle: MethodHandle? = null
+    private var serializeHandle: MethodHandle? = null
+    private var unserializeHandle: MethodHandle? = null
 
     private val systemDirSeg = arena.allocateUtf8String(systemDirectory)
 
@@ -76,6 +79,15 @@ internal class LibretroFfm(
         unloadGameHandle = sym.down("retro_unload_game", FunctionDescriptor.ofVoid())
         runHandle = sym.down("retro_run", FunctionDescriptor.ofVoid())
         resetHandle = sym.down("retro_reset", FunctionDescriptor.ofVoid())
+        serializeSizeHandle = sym.down("retro_serialize_size", FunctionDescriptor.of(ValueLayout.JAVA_LONG))
+        serializeHandle = sym.down(
+            "retro_serialize",
+            FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG),
+        )
+        unserializeHandle = sym.down(
+            "retro_unserialize",
+            FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG),
+        )
     }
 
     fun installCallbacks() {
@@ -127,6 +139,26 @@ internal class LibretroFfm(
     fun callRun() { runHandle!!.invoke() }
     fun callReset() { resetHandle!!.invoke() }
     fun callUnloadGame() { unloadGameHandle!!.invoke() }
+
+    fun callSerializeSize(): Long = serializeSizeHandle!!.invoke() as Long
+
+    fun callSerialize(): ByteArray {
+        val size = callSerializeSize()
+        require(size > 0L) { "Core returned zero serialize size" }
+        val buf = arena.allocate(size)
+        val ok = serializeHandle!!.invoke(buf, size) as Boolean
+        check(ok) { "retro_serialize returned false" }
+        val bytes = ByteArray(size.toInt())
+        MemorySegment.copy(buf, ValueLayout.JAVA_BYTE, 0, bytes, 0, size.toInt())
+        return bytes
+    }
+
+    fun callUnserialize(bytes: ByteArray): Boolean {
+        val size = bytes.size.toLong()
+        val buf = arena.allocate(size)
+        MemorySegment.copy(bytes, 0, buf, ValueLayout.JAVA_BYTE, 0, bytes.size)
+        return unserializeHandle!!.invoke(buf, size) as Boolean
+    }
 
     fun callApiVersion(): Int = apiVersion!!.invoke() as Int
 
