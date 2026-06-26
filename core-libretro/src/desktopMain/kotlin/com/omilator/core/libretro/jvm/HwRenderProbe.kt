@@ -5,7 +5,7 @@ import java.io.File
 import java.lang.foreign.Arena
 
 fun main() = runBlocking {
-    val cores = listOf("dolphin_libretro.dylib")
+    val cores = listOf("ppsspp_libretro.dylib")
     val sysDir = File("build/omilator-sys").apply { mkdirs() }.absolutePath
 
     for (fileName in cores) {

@@ -26,8 +26,7 @@ fun main() = runBlocking {
         CoreSpec("flycast (DC)",      "flycast_libretro.dylib",          "gdi|cdi|chd|cue|gdl|m3u"),
         CoreSpec("mednafen_saturn",   "mednafen_saturn_libretro.dylib",  "cue|ccd|chd|toc|m3u|iso|bin"),
         CoreSpec("Dolphin (GC/Wii)",  "dolphin_libretro.dylib",          "gcm|iso|gcz|wbfs|wad|ciso|rvz|wia"),
-        // PPSSPP crashes in retro_init — expects private Vulkan extensions
-        // (cmd 65581/65587) before standard SET_HW_RENDER. Future work.
+        CoreSpec("PPSSPP (PSP)",      "ppsspp_libretro.dylib",           "elf|iso|cso|prx|pbp|chd"),
     )
 
     val sysDir = File("build/omilator-sys").apply { mkdirs() }.absolutePath

@@ -52,8 +52,24 @@ internal class LibretroFfm(
     private var unserializeHandle: MethodHandle? = null
 
     private val systemDirSeg = arena.allocateUtf8String(systemDirectory)
-    private val logCbStruct by lazy { allocateLogCallbackStruct() }
     val hwRender: HwRenderBridge = HwRenderBridge(arena)
+
+    /** FFM upcall fallbacks (used only if libomilator_log.dylib is missing). */
+    private val logFallbackStub: MemorySegment by lazy {
+        val stub = upcallBound(
+            "onLog",
+            MethodType.methodType(Void::class.javaPrimitiveType, Int::class.javaPrimitiveType, MemorySegment::class.java),
+            FunctionDescriptor.ofVoid(ValueLayout.JAVA_INT, ValueLayout.ADDRESS),
+        )
+        stub
+    }
+    private val rumbleFallbackStub: MemorySegment by lazy {
+        upcallBound(
+            "onRumble",
+            MethodType.methodType(Boolean::class.javaPrimitiveType, Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, Short::class.javaPrimitiveType),
+            FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_SHORT),
+        )
+    }
 
     fun loadCore(path: String) {
         val sym = SymbolLookup.libraryLookup(path, arena)
@@ -226,12 +242,19 @@ internal class LibretroFfm(
             RetroEnv.GET_INPUT_BITMASKS,
             RetroEnv.GET_AUDIO_VIDEO_ENABLE -> true
             RetroEnv.GET_LOG_INTERFACE -> {
-                // Provide a retro_log_callback struct (just a function pointer).
-                // PPSSPP and others crash if they store null then call it.
-                data.reinterpret(8L).set(ValueLayout.ADDRESS, 0, logCbStruct)
+                // retro_log_callback { retro_log_printf_t log; }
+                // The function pointer goes at offset 0 of data — NOT a pointer
+                // to a separate struct. PPSSPP dereferences data[0] as the fn ptr.
+                val fnPtr = LogBridge.logCallbackAddress() ?: logFallbackStub
+                data.reinterpret(8L).set(ValueLayout.ADDRESS, 0, fnPtr)
                 true
             }
-            RetroEnv.GET_RUMBLE_INTERFACE,
+            RetroEnv.GET_RUMBLE_INTERFACE -> {
+                // retro_rumble_interface { retro_set_rumble_state_t set_rumble_state; }
+                val fnPtr = LogBridge.rumbleCallbackAddress() ?: rumbleFallbackStub
+                data.reinterpret(8L).set(ValueLayout.ADDRESS, 0, fnPtr)
+                true
+            }
             RetroEnv.GET_CAMERA_DRIVER,
             RetroEnv.GET_TARGET_REFRESH_RATE,
             RetroEnv.GET_PREFERRED_HW_RENDER -> false
@@ -240,30 +263,21 @@ internal class LibretroFfm(
         }
         if (!handled && cmd !in silentEnvCmds) {
             println("[Omilator] env cmd $cmd unhandled (declining)")
-        }
-        return handled
-    }
-
-    private fun allocateLogCallbackStruct(): MemorySegment {
-        // retro_log_callback { retro_log_printf_t log; }
-        // Provide a stub that swallows varargs safely (C calling convention
-        // allows extra args in registers/stack that we just don't read).
-        val stub = upcallBound(
-            "onLog",
-            MethodType.methodType(Void::class.javaPrimitiveType, Int::class.javaPrimitiveType, MemorySegment::class.java),
-            FunctionDescriptor.ofVoid(ValueLayout.JAVA_INT, ValueLayout.ADDRESS),
-        )
-        val struct = arena.allocate(8L)
-        struct.set(ValueLayout.ADDRESS, 0, stub)
-        return struct
-    }
+         }
+         return handled
+     }
 
     @Suppress("unused")
     fun onLog(level: Int, fmt: MemorySegment) {
-        if (fmt.address() == 0L) return
-        val msg = fmt.reinterpret(8192L).getUtf8String(0)
-        // Strip trailing newline if present
-        print("[core/log] $msg" + if (!msg.endsWith("\n")) "\n" else "")
+        // Fallback path only — when libomilator_log.dylib is unavailable.
+        // Reading fmt crashes on macOS arm64 (BUS_ADRALN) due to FFM
+        // variadic upcall limitation. The C bridge (omilator_log_bridge.c)
+        // handles this safely when present.
+    }
+
+    @Suppress("unused")
+    fun onRumble(port: Int, effect: Int, strength: Short): Boolean {
+        return true
     }
 
     private val silentEnvCmds = setOf(
