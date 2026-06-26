@@ -24,8 +24,10 @@ fun main() = runBlocking {
         CoreSpec("Azahar (3DS)",      "azahar_libretro.dylib",           "3ds|3dsx|cci|cxi|app|elf"),
         CoreSpec("Play! (PS2)",       "play_libretro.dylib",             "iso|bin|elf|nrg|mdf|gz"),
         CoreSpec("flycast (DC)",      "flycast_libretro.dylib",          "gdi|cdi|chd|cue|gdl|m3u"),
-        CoreSpec("mednafen_saturn",   "mednafen_saturn_libretro.dylib",  "cue|chd|ccd|m3u|iso|bin"),
-        // PPSSPP and Dolphin still require SET_HW_RENDER (see HW render TODO).
+        CoreSpec("mednafen_saturn",   "mednafen_saturn_libretro.dylib",  "cue|ccd|chd|toc|m3u|iso|bin"),
+        CoreSpec("Dolphin (GC/Wii)",  "dolphin_libretro.dylib",          "gcm|iso|gcz|wbfs|wad|ciso|rvz|wia"),
+        // PPSSPP crashes in retro_init — expects private Vulkan extensions
+        // (cmd 65581/65587) before standard SET_HW_RENDER. Future work.
     )
 
     val sysDir = File("build/omilator-sys").apply { mkdirs() }.absolutePath

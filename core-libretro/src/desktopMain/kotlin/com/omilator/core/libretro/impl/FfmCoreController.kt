@@ -81,7 +81,19 @@ internal class FfmCoreController(
     }
 
     override fun runFrame() {
-        native?.callRun()
+        val n = native ?: return
+        val info = avInfoCache
+        if (n.hwRender.isActive && info != null) {
+            // HW render FBO must be sized to the maximum possible dimensions,
+            // because cores can render at varying sizes (e.g. PS1 changing
+            // interlaced/progressive modes).
+            n.callRunHwFrame(
+                width = info.geometry.maxWidth.toInt().coerceAtLeast(info.geometry.baseWidth.toInt()),
+                height = info.geometry.maxHeight.toInt().coerceAtLeast(info.geometry.baseHeight.toInt()),
+            )
+        } else {
+            n.callRun()
+        }
     }
 
     override fun reset() { native?.callReset() }
@@ -91,7 +103,10 @@ internal class FfmCoreController(
     }
 
     override fun unloadCore() {
-        native?.callDeinit()
+        native?.let {
+            runCatching { it.hwRender.destroy() }
+            runCatching { it.callDeinit() }
+        }
         native = null
         systemInfoCache = null
         avInfoCache = null

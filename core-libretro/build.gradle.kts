@@ -44,6 +44,16 @@ kotlin {
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.touchlab.kermit)
         }
+        val desktopMain by getting {
+            dependencies {
+                implementation("org.lwjgl:lwjgl:3.3.4")
+                implementation("org.lwjgl:lwjgl-opengl:3.3.4")
+                implementation("org.lwjgl:lwjgl-glfw:3.3.4")
+                runtimeOnly("org.lwjgl:lwjgl:3.3.4:natives-macos-arm64")
+                runtimeOnly("org.lwjgl:lwjgl-opengl:3.3.4:natives-macos-arm64")
+                runtimeOnly("org.lwjgl:lwjgl-glfw:3.3.4:natives-macos-arm64")
+            }
+        }
         commonTest.dependencies {
             implementation(kotlin("test"))
         }
@@ -72,7 +82,7 @@ tasks.register<JavaExec>("phase1Verify") {
     val desktopTarget = kotlin.targets.getByName("desktop")
     val desktopCompilation = desktopTarget.compilations.getByName("main") as org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJvmCompilation
 
-    classpath = desktopCompilation.output.allOutputs + desktopCompilation.compileDependencyFiles
+    classpath = desktopCompilation.output.allOutputs + desktopCompilation.runtimeDependencyFiles
     mainClass.set("com.omilator.core.libretro.jvm.Phase1VerificationKt")
     workingDir = rootProject.projectDir
     jvmArgs("--enable-native-access=ALL-UNNAMED")
@@ -85,7 +95,7 @@ tasks.register<JavaExec>("phase2Verify") {
     val desktopTarget = kotlin.targets.getByName("desktop")
     val desktopCompilation = desktopTarget.compilations.getByName("main") as org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJvmCompilation
 
-    classpath = desktopCompilation.output.allOutputs + desktopCompilation.compileDependencyFiles
+    classpath = desktopCompilation.output.allOutputs + desktopCompilation.runtimeDependencyFiles
     mainClass.set("com.omilator.core.libretro.jvm.Phase2VerificationKt")
     workingDir = rootProject.projectDir
     jvmArgs("--enable-native-access=ALL-UNNAMED")
@@ -98,7 +108,7 @@ tasks.register<JavaExec>("phase5Verify") {
     val desktopTarget = kotlin.targets.getByName("desktop")
     val desktopCompilation = desktopTarget.compilations.getByName("main") as org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJvmCompilation
 
-    classpath = desktopCompilation.output.allOutputs + desktopCompilation.compileDependencyFiles
+    classpath = desktopCompilation.output.allOutputs + desktopCompilation.runtimeDependencyFiles
     mainClass.set("com.omilator.core.libretro.jvm.Phase5VerificationKt")
     workingDir = rootProject.projectDir
     jvmArgs("--enable-native-access=ALL-UNNAMED")
@@ -111,7 +121,7 @@ tasks.register<JavaExec>("coreLoaderTest") {
     val desktopTarget = kotlin.targets.getByName("desktop")
     val desktopCompilation = desktopTarget.compilations.getByName("main") as org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJvmCompilation
 
-    classpath = desktopCompilation.output.allOutputs + desktopCompilation.compileDependencyFiles
+    classpath = desktopCompilation.output.allOutputs + desktopCompilation.runtimeDependencyFiles
     mainClass.set("com.omilator.core.libretro.jvm.CoreLoaderTestKt")
     workingDir = rootProject.projectDir
     jvmArgs("--enable-native-access=ALL-UNNAMED")
@@ -124,7 +134,7 @@ tasks.register<JavaExec>("hwRenderProbe") {
     val desktopTarget = kotlin.targets.getByName("desktop")
     val desktopCompilation = desktopTarget.compilations.getByName("main") as org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJvmCompilation
 
-    classpath = desktopCompilation.output.allOutputs + desktopCompilation.compileDependencyFiles
+    classpath = desktopCompilation.output.allOutputs + desktopCompilation.runtimeDependencyFiles
     mainClass.set("com.omilator.core.libretro.jvm.HwRenderProbeKt")
     workingDir = rootProject.projectDir
     jvmArgs("--enable-native-access=ALL-UNNAMED")

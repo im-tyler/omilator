@@ -10,6 +10,7 @@ serialization = "1.7.3"
 datetime = "0.6.1"
 skie = "0.9.3"
 kermit = "2.0.4"
+lwjgl = "3.3.4"
 
 [libraries]
 # Kotlinx
@@ -27,6 +28,14 @@ androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx
 
 # Logging
 touchlab-kermit = { module = "co.touchlab:kermit", version.ref = "kermit" }
+
+# LWJGL (desktop HW render — libretro SET_HW_RENDER integration)
+lwjgl = { module = "org.lwjgl:lwjgl", version.ref = "lwjgl" }
+lwjgl-opengl = { module = "org.lwjgl:lwjgl-opengl", version.ref = "lwjgl" }
+lwjgl-glfw = { module = "org.lwjgl:lwjgl-glfw", version.ref = "lwjgl" }
+lwjgl-natives-macos-arm64 = { module = "org.lwjgl:lwjgl", version.ref = "lwjgl" }
+lwjgl-opengl-natives-macos-arm64 = { module = "org.lwjgl:lwjgl-opengl", version.ref = "lwjgl" }
+lwjgl-glfw-natives-macos-arm64 = { module = "org.lwjgl:lwjgl-glfw", version.ref = "lwjgl" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

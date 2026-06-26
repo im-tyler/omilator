@@ -6,6 +6,7 @@ import com.omilator.core.libretro.jvm.LibretroLayouts.gameGeometry
 import com.omilator.core.libretro.jvm.LibretroLayouts.systemAvInfo
 import com.omilator.core.libretro.jvm.LibretroLayouts.systemInfo
 import com.omilator.core.libretro.jvm.LibretroLayouts.systemTiming
+import com.omilator.core.libretro.jvm.gl.HwRenderBridge
 import java.lang.foreign.Arena
 import java.lang.foreign.FunctionDescriptor
 import java.lang.foreign.Linker
@@ -52,6 +53,7 @@ internal class LibretroFfm(
 
     private val systemDirSeg = arena.allocateUtf8String(systemDirectory)
     private val logCbStruct by lazy { allocateLogCallbackStruct() }
+    val hwRender: HwRenderBridge = HwRenderBridge(arena)
 
     fun loadCore(path: String) {
         val sym = SymbolLookup.libraryLookup(path, arena)
@@ -232,20 +234,8 @@ internal class LibretroFfm(
             RetroEnv.GET_RUMBLE_INTERFACE,
             RetroEnv.GET_CAMERA_DRIVER,
             RetroEnv.GET_TARGET_REFRESH_RATE,
-            RetroEnv.SET_HW_RENDER,
-            RetroEnv.GET_PREFERRED_HW_RENDER -> {
-                val ctxType = if (cmd == RetroEnv.SET_HW_RENDER && data.address() != 0L) {
-                    runCatching { data.reinterpret(4L).get(ValueLayout.JAVA_INT, 0) }.getOrDefault(-1)
-                } else -1
-                if (cmd == RetroEnv.SET_HW_RENDER) {
-                    val typeName = when (ctxType) {
-                        1 -> "OPENGL"; 2 -> "OPENGLES"; 3 -> "OPENGL_CORE"
-                        6 -> "VULKAN"; 12 -> "METAL"; else -> "?"
-                    }
-                    println("[Omilator] core requested HW_RENDER ctx=$typeName — declining")
-                }
-                false
-            }
+            RetroEnv.GET_PREFERRED_HW_RENDER -> false
+            RetroEnv.SET_HW_RENDER -> hwRender.handleRequest(data)
             else -> false
         }
         if (!handled && cmd !in silentEnvCmds) {
@@ -292,6 +282,11 @@ internal class LibretroFfm(
 
     @Suppress("unused")
     fun onVideo(data: MemorySegment, width: Int, height: Int, pitch: Long) {
+        if (hwRender.isActive) {
+            // HW render: data is NULL — we manually read from the FBO after retro_run
+            // (see callRunHwFrame). Skip dispatch here.
+            return
+        }
         if (data.address() == 0L || width <= 0 || height <= 0) {
             onVideo?.invoke(data, width, height, pitch)
             return
@@ -299,6 +294,24 @@ internal class LibretroFfm(
         val size = height.toLong() * pitch
         val sized = data.reinterpret(size)
         onVideo?.invoke(sized, width, height, pitch)
+    }
+
+    /**
+     * Per-frame HW path: make FBO current, run core, read pixels, dispatch as a
+     * software Framebuffer so the existing conversion pipeline handles it.
+     */
+    fun callRunHwFrame(width: Int, height: Int) {
+        hwRender.ensureFramebufferSize(width, height)
+        hwRender.makeCurrent()
+        callRun()
+        hwRender.unbind()
+        val pixels = hwRender.readPixels() ?: return
+        // GL_RGBA -> matches our XRGB8888 converter (RGBA byte order, ignore alpha)
+        onVideo?.invoke(
+            MemorySegment.ofArray(pixels),
+            width, height,
+            (width * 4).toLong(),
+        )
     }
 
     @Suppress("unused")
