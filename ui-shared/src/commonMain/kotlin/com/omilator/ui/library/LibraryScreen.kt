@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AssistChip
@@ -55,6 +56,7 @@ fun LibraryScreen(
     viewModel: LibraryViewModel,
     onAddDirectory: () -> Unit,
     onOpenGame: (String) -> Unit,
+    onQuickPlay: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -69,6 +71,9 @@ fun LibraryScreen(
                     )
                 },
                 actions = {
+                    IconButton(onClick = onQuickPlay) {
+                        Icon(Icons.Rounded.PlayArrow, contentDescription = "Open ROM file")
+                    }
                     IconButton(onClick = { viewModel.rescan() }) {
                         Icon(Icons.Rounded.Refresh, contentDescription = "Rescan library")
                     }
@@ -100,9 +105,18 @@ fun LibraryScreen(
                 )
             }
 
+            state.error?.let { err ->
+                Text(
+                    "Scan error: $err",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+
             when {
                 state.isLoading -> LoadingState()
-                state.games.isEmpty() -> EmptyState(onAddDirectory)
+                state.games.isEmpty() -> EmptyState(onAddDirectory, onQuickPlay)
                 state.visibleGames.isEmpty() -> NoMatchesState()
                 else -> GridState(state.visibleGames, onOpenGame)
             }
@@ -168,7 +182,7 @@ private fun LoadingState() {
 }
 
 @Composable
-private fun EmptyState(onAddDirectory: () -> Unit) {
+private fun EmptyState(onAddDirectory: () -> Unit, onQuickPlay: () -> Unit) {
     Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
@@ -177,7 +191,7 @@ private fun EmptyState(onAddDirectory: () -> Unit) {
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
-                "Add a directory of ROMs to begin.",
+                "Add a directory of ROMs to begin, or open a single ROM to play immediately.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
@@ -188,8 +202,13 @@ private fun EmptyState(onAddDirectory: () -> Unit) {
             ) {
                 AssistChip(
                     onClick = onAddDirectory,
-                    label = { Text("Add ROM directory") },
+                    label = { Text("Add directory") },
                     leadingIcon = { Icon(Icons.Rounded.Add, contentDescription = null) },
+                )
+                AssistChip(
+                    onClick = onQuickPlay,
+                    label = { Text("Open ROM") },
+                    leadingIcon = { Icon(Icons.Rounded.PlayArrow, contentDescription = null) },
                 )
             }
         }

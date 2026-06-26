@@ -2,7 +2,6 @@ package com.omilator.ui.player
 
 import com.omilator.core.audio.AudioOutput
 import com.omilator.core.libretro.api.CoreController
-import com.omilator.core.libretro.api.CoreLoadException
 import com.omilator.core.libretro.api.Framebuffer
 import com.omilator.core.libretro.api.Geometry
 import com.omilator.core.libretro.api.InputDevice
@@ -43,10 +42,19 @@ class PlayerEngine(
     suspend fun start() {
         _state.value = _state.value.copy(isLoading = true)
         try {
+            println("[Omilator] Loading core: $corePath")
+            println("[Omilator] ROM: $romPath")
+            println("[Omilator] ROM exists: ${java.io.File(romPath).exists()}")
+            println("[Omilator] Core exists: ${java.io.File(corePath).exists()}")
             controller.loadCore(corePath)
+            println("[Omilator] Core loaded")
             val avInfo = controller.loadGame(romPath)
+            println("[Omilator] Game loaded: ${avInfo.geometry.baseWidth}x${avInfo.geometry.baseHeight} @ ${avInfo.timing.fps}fps")
             controller.attach(
-                video = VideoSink { fb -> latestFrame.set(fb) },
+                video = VideoSink { fb ->
+                    frameCounter.incrementAndGet()
+                    latestFrame.set(fb)
+                },
                 audio = AudioSinkAdapter(audioOutput),
                 input = InputSourceAdapter(inputState),
             )
@@ -56,11 +64,19 @@ class PlayerEngine(
                 geometry = avInfo.geometry,
                 fps = avInfo.timing.fps,
             )
-            frameLoop = scope.launch { runLoop(avInfo.timing.fps) }
+            frameLoop = scope.launch {
+                println("[Omilator] Frame loop started, target ${avInfo.timing.fps}fps")
+                runLoop(avInfo.timing.fps)
+            }
         } catch (t: Throwable) {
-            _state.value = _state.value.copy(isLoading = false, error = t.message ?: t::class.simpleName)
+            println("[Omilator] ERROR during start: ${t::class.simpleName}: ${t.message}")
+            t.printStackTrace()
+            _state.value = _state.value.copy(isLoading = false, error = "${t::class.simpleName}: ${t.message}")
         }
     }
+
+    val frameCounter = java.util.concurrent.atomic.AtomicInteger(0)
+    val lastFrameCount: Int get() = frameCounter.get()
 
     fun stop() {
         frameLoop?.cancel()

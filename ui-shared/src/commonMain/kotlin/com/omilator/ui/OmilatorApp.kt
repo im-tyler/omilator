@@ -39,6 +39,7 @@ fun OmilatorApp(
     settingsViewModel: SettingsViewModel,
     onAddRomDirectory: () -> Unit,
     onPlayRom: (String) -> Unit = {},
+    onQuickPlay: () -> Unit = {},
 ) {
     val windowClass = currentWindowSizeClass()
     var destination by rememberSaveable { mutableStateOf(OmilatorDestination.LIBRARY) }
@@ -67,6 +68,7 @@ fun OmilatorApp(
                         viewModel = libraryViewModel,
                         onAddDirectory = onAddRomDirectory,
                         onOpenGame = onPlayRom,
+                        onQuickPlay = onQuickPlay,
                     )
                     OmilatorDestination.SETTINGS -> SettingsScreen(
                         viewModel = settingsViewModel,
@@ -99,6 +101,7 @@ fun OmilatorApp(
                             viewModel = libraryViewModel,
                             onAddDirectory = onAddRomDirectory,
                             onOpenGame = onPlayRom,
+                            onQuickPlay = onQuickPlay,
                         )
                         OmilatorDestination.SETTINGS -> SettingsScreen(
                             viewModel = settingsViewModel,

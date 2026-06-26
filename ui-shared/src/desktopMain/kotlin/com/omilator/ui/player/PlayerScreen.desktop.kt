@@ -4,7 +4,12 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -12,7 +17,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -20,23 +24,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
-import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.NativeKeyEvent
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.nativeKeyCode
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
-import java.io.File
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import com.omilator.core.audio.createAudioOutputFactory
-import kotlinx.coroutines.launch
-import java.awt.EventQueue
+import java.io.File
 
 @Composable
 fun PlayerScreen(
@@ -52,13 +52,10 @@ fun PlayerScreen(
             audioOutput = audioOutput,
         )
     }
-    val scope = rememberCoroutineScope()
     val state by engine.state.collectAsState()
     val focusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(gameId) {
-        engine.start()
-    }
+    LaunchedEffect(gameId) { engine.start() }
 
     DisposableEffect(gameId) {
         onDispose {
@@ -67,12 +64,13 @@ fun PlayerScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-    }
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
     var latestBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    var debugFrameCount by remember { mutableStateOf(0) }
+    var lastEmittedCount by remember { mutableStateOf(0) }
 
+    // Frame pump: pull latest framebuffer from the engine on every UI frame.
     LaunchedEffect(Unit) {
         while (true) {
             withFrameNanos { _ ->
@@ -80,6 +78,11 @@ fun PlayerScreen(
                 if (image != null) {
                     latestBitmap = image.toComposeImageBitmap()
                 }
+                val emittedNow = engine.lastFrameCount
+                if (emittedNow != lastEmittedCount) {
+                    lastEmittedCount = emittedNow
+                }
+                debugFrameCount = emittedNow
             }
         }
     }
@@ -91,7 +94,14 @@ fun PlayerScreen(
             .focusRequester(focusRequester)
             .focusable()
             .onKeyEvent { event ->
+                if (event.type != KeyEventType.KeyUp && event.type != KeyEventType.KeyDown) {
+                    return@onKeyEvent false
+                }
                 val keyCode = event.key.nativeKeyCode
+                if (event.type == KeyEventType.KeyUp && keyCode == java.awt.event.KeyEvent.VK_ESCAPE) {
+                    onClose()
+                    return@onKeyEvent true
+                }
                 val button = KeyboardMapping.buttonFor(keyCode)
                 if (button != null) {
                     when (event.type) {
@@ -101,55 +111,113 @@ fun PlayerScreen(
                     return@onKeyEvent true
                 }
                 if (event.type == KeyEventType.KeyUp) {
-                    val saveDir = File(System.getProperty("user.home"), "Library/Application Support/Omilator/saves")
-                    if (!saveDir.exists()) saveDir.mkdirs()
+                    val saveDir = File(System.getProperty("user.home"), "Library/Application Support/Omilator/saves").apply { mkdirs() }
                     val romBase = File(gameId).nameWithoutExtension
                     when (keyCode) {
-                        java.awt.event.KeyEvent.VK_F5 -> {
-                            val path = File(saveDir, "$romBase.state").absolutePath
-                            engine.saveState(path)
-                            true
-                        }
-                        java.awt.event.KeyEvent.VK_F8 -> {
-                            val path = File(saveDir, "$romBase.state").absolutePath
-                            engine.loadState(path)
-                            true
-                        }
+                        java.awt.event.KeyEvent.VK_F5 -> { engine.saveState(File(saveDir, "$romBase.state").absolutePath); true }
+                        java.awt.event.KeyEvent.VK_F8 -> { engine.loadState(File(saveDir, "$romBase.state").absolutePath); true }
                         else -> false
                     }
                 } else false
             },
         contentAlignment = Alignment.Center,
     ) {
-        latestBitmap?.let { bmp ->
-            val geom = state.geometry
-            val scale = if (geom != null) {
-                val (cw, ch) = currentWindowPixels()
-                val sx = cw.toFloat() / geom.baseWidth.toFloat()
-                val sy = ch.toFloat() / geom.baseHeight.toFloat()
-                minOf(sx, sy)
-            } else 1f
-            val drawW = (bmp.width * scale).toInt().coerceAtLeast(1)
-            val drawH = (bmp.height * scale).toInt().coerceAtLeast(1)
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                drawImage(
-                    image = bmp,
-                    srcOffset = IntOffset.Zero,
-                    srcSize = IntSize(bmp.width, bmp.height),
-                    dstOffset = IntOffset(
-                        ((size.width - drawW) / 2).toInt(),
-                        ((size.height - drawH) / 2).toInt(),
-                    ),
-                    dstSize = IntSize(drawW, drawH),
-                )
-            }
+        when {
+            state.error != null -> ErrorOverlay(state.error!!, corePath, gameId)
+            state.isLoading -> LoadingOverlay(corePath, gameId)
+            latestBitmap == null -> WaitingForFramesOverlay(corePath, gameId, debugFrameCount)
+            else -> EmulatedSurface(latestBitmap!!, state.geometry?.aspectRatio ?: 1.5f)
         }
+
+        DebugOverlay(
+            corePath = corePath,
+            romPath = gameId,
+            geometry = state.geometry,
+            framesEmitted = debugFrameCount,
+            modifier = Modifier.align(Alignment.TopStart),
+        )
+    }
+}
+
+@Composable
+private fun EmulatedSurface(bitmap: ImageBitmap, aspectRatio: Float) {
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val canvasW = size.width
+        val canvasH = size.height
+        val scaleX = canvasW / bitmap.width
+        val scaleY = canvasH / bitmap.height
+        val scale = minOf(scaleX, scaleY)
+        val drawW = bitmap.width * scale
+        val drawH = bitmap.height * scale
+        val dx = (canvasW - drawW) / 2f
+        val dy = (canvasH - drawH) / 2f
+        drawImage(
+            image = bitmap,
+            srcOffset = IntOffset.Zero,
+            srcSize = IntSize(bitmap.width, bitmap.height),
+            dstOffset = IntOffset(dx.toInt(), dy.toInt()),
+            dstSize = IntSize(drawW.toInt(), drawH.toInt()),
+        )
+    }
+}
+
+@Composable
+private fun LoadingOverlay(corePath: String, romPath: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("Loading...", color = Color.White)
+        Text(romPath, color = Color.LightGray, style = MaterialTheme.typography.bodyMedium)
+        Text(corePath, color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+private fun WaitingForFramesOverlay(corePath: String, romPath: String, framesSoFar: Int) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("Waiting for first frame...", color = Color.White)
+        Text("Frames emitted by core so far: $framesSoFar", color = Color.LightGray)
+        Text(romPath, color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+private fun ErrorOverlay(message: String, corePath: String, romPath: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
+        Text("Error loading game", color = MaterialTheme.colorScheme.error)
+        Text(message, color = Color.White, modifier = Modifier.padding(top = 8.dp))
+        Text("Core: $corePath", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
+        Text("ROM:  $romPath", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
+        Text("Esc to go back", color = Color.Gray, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 16.dp))
+    }
+}
+
+@Composable
+private fun DebugOverlay(
+    corePath: String,
+    romPath: String,
+    geometry: com.omilator.core.libretro.api.Geometry?,
+    framesEmitted: Int,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.padding(8.dp),
+    ) {
+        Text(
+            buildString {
+                appendLine("core: ${File(corePath).name}")
+                append("emitted: $framesEmitted")
+                geometry?.let {
+                    appendLine()
+                    append("geom: ${it.baseWidth}x${it.baseHeight}")
+                }
+            },
+            color = Color(0x80FFFFFF),
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 
 private fun resolveCorePath(romPath: String): String {
-    val romFile = java.io.File(romPath)
-    val ext = romFile.extension.lowercase()
+    val ext = File(romPath).extension.lowercase()
     val coreName = when (ext) {
         "gba", "gb", "gbc", "sgb" -> "mgba_libretro"
         "nes", "nez" -> "mesen_libretro"
@@ -157,20 +225,16 @@ private fun resolveCorePath(romPath: String): String {
         "md", "bin", "smd", "gen" -> "genesis_plus_gx_libretro"
         else -> "mgba_libretro"
     }
-    val baseDir = java.io.File("cores").absoluteFile
-    val candidates = listOf(
-        java.io.File(baseDir, "$coreName.dylib"),
-        java.io.File(baseDir, "$coreName.so"),
-        java.io.File(baseDir, "$coreName.dll"),
-    )
-    return candidates.firstOrNull { it.exists() }?.absolutePath
-        ?: java.io.File(baseDir, "$coreName.dylib").absolutePath
-}
-
-private fun currentWindowPixels(): Pair<Int, Int> {
-    var size: Pair<Int, Int> = Pair(800, 600)
-    EventQueue.invokeLater {
-        // best-effort: we don't have direct access here
+    val candidates = buildList {
+        val exts = listOf("dylib", "so", "dll")
+        // 1. ./cores relative to CWD
+        exts.forEach { add(File("cores/$coreName.$it")) }
+        // 2. ../cores (project root, when launched via gradle :app-desktop:run)
+        exts.forEach { add(File("../cores/$coreName.$it")) }
+        // 3. ~/Library/Application Support/Omilator/cores
+        val home = System.getProperty("user.home")
+        exts.forEach { add(File("$home/Library/Application Support/Omilator/cores/$coreName.$it")) }
     }
-    return size
+    return candidates.firstOrNull { it.exists() }?.absolutePath
+        ?: File("cores/$coreName.dylib").absolutePath // fallback for error message
 }
