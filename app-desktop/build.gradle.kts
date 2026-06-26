@@ -17,6 +17,7 @@ kotlin {
                 implementation(project(":ui-shared"))
                 implementation(project(":core-libretro"))
                 implementation(project(":data-library"))
+                implementation(project(":data-settings"))
                 implementation(compose.desktop.currentOs)
                 implementation(libs.kotlinx.coroutines.swing)
             }
