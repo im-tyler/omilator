@@ -61,36 +61,47 @@ internal class HwRenderBridge(private val arena: Arena) {
         val minor = sized.get(ValueLayout.JAVA_INT, 8)
         println("[Omilator] SET_HW_RENDER: OpenGL ctx_type=$ctxType v$major.$minor — providing")
 
-        // Create the GL context if not already
+        // Step 1: create GL context
+        println("[HwRender] step 1: creating GlContext")
         if (gl == null) {
-            gl = GlContext.create()
+            try {
+                gl = GlContext.create()
+                println("[HwRender] GlContext created OK")
+            } catch (t: Throwable) {
+                println("[HwRender] GlContext.create FAILED: ${t::class.simpleName}: ${t.message}")
+                return false
+            }
         }
 
-        // Read the core's function pointers
+        // Step 2: read core's function pointers
+        println("[HwRender] step 2: reading core fn ptrs")
         val resetSeg = sized.get(ValueLayout.ADDRESS, 16)
         val destroySeg = sized.get(ValueLayout.ADDRESS, 24)
         val linker = Linker.nativeLinker()
         if (resetSeg.address() != 0L) {
             contextResetHandle = linker.downcallHandle(resetSeg, FunctionDescriptor.ofVoid())
+            println("[HwRender] context_reset at ${resetSeg.address()}")
         }
         if (destroySeg.address() != 0L) {
             contextDestroyHandle = linker.downcallHandle(destroySeg, FunctionDescriptor.ofVoid())
+            println("[HwRender] context_destroy at ${destroySeg.address()}")
         }
 
-        // Provide frontend's get_current_framebuffer + get_proc_address
+        // Step 3: provide frontend callbacks
+        println("[HwRender] step 3: providing get_current_framebuffer + get_proc_address")
         val getFbStub = upcallGetFramebuffer()
         val getProcStub = upcallGetProcAddress()
         sized.set(ValueLayout.ADDRESS, 32, getFbStub)
         sized.set(ValueLayout.ADDRESS, 40, getProcStub)
+        sized.set(ValueLayout.JAVA_BYTE, 48, 1)  // bottom_left_origin
 
-        // bottom_left_origin = true (libretro convention; GL is bottom-left)
-        sized.set(ValueLayout.JAVA_BYTE, 48, 1)
-
-        // Call the core's context_reset — it will set up its own GL resources
+        // Step 4: call core's context_reset — it sets up its own GL resources
+        println("[HwRender] step 4: calling context_reset (core will set up GL)")
         try {
             contextResetHandle?.invoke()
+            println("[HwRender] context_reset returned OK")
         } catch (t: Throwable) {
-            println("[Omilator] context_reset threw: ${t.message}")
+            println("[HwRender] context_reset threw: ${t::class.simpleName}: ${t.message}")
             return false
         }
         return true

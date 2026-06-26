@@ -98,6 +98,14 @@ private fun GameSystem.shortLabel(): String = when (this) {
     GameSystem.GENESIS -> "MD"
     GameSystem.NINTENDO_64 -> "N64"
     GameSystem.PLAYSTATION -> "PS1"
+    GameSystem.NINTENDO_DS -> "DS"
+    GameSystem.PSP -> "PSP"
+    GameSystem.GAMECUBE -> "GC"
+    GameSystem.WII -> "Wii"
+    GameSystem.NINTENDO_3DS -> "3DS"
+    GameSystem.PLAYSTATION_2 -> "PS2"
+    GameSystem.DREAMCAST -> "DC"
+    GameSystem.SATURN -> "SAT"
 }
 
 private fun coverTopFor(system: GameSystem): Color = when (system) {
@@ -109,6 +117,14 @@ private fun coverTopFor(system: GameSystem): Color = when (system) {
     GameSystem.GENESIS -> Color(0xFF2D4356)
     GameSystem.NINTENDO_64 -> Color(0xFF5D4E75)
     GameSystem.PLAYSTATION -> Color(0xFF1F4E79)
+    GameSystem.NINTENDO_DS -> Color(0xFF777777)
+    GameSystem.PSP -> Color(0xFF003366)
+    GameSystem.GAMECUBE -> Color(0xFF6A0DAD)
+    GameSystem.WII -> Color(0xFF8BABC4)
+    GameSystem.NINTENDO_3DS -> Color(0xFFA52A2A)
+    GameSystem.PLAYSTATION_2 -> Color(0xFF1E4D88)
+    GameSystem.DREAMCAST -> Color(0xFFFF6600)
+    GameSystem.SATURN -> Color(0xFF3399CC)
 }
 
 private fun coverBottomFor(system: GameSystem): Color =

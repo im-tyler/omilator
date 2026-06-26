@@ -130,8 +130,10 @@ private fun pickRomFile(): String? {
     return try {
         val dialog = FileDialog(frame, "Select ROM file", FileDialog.LOAD).apply {
             isMultipleMode = false
-            val extensions = arrayOf(".gba", ".gb", ".gbc", ".sgb", ".nes", ".nez", ".sfc", ".smc", ".md", ".bin", ".smd", ".gen")
-            setFilenameFilter { _, name -> extensions.any { name.lowercase().endsWith(it) } }
+            // No filename filter — let the user pick any file. The macOS
+            // native FileDialog greys out otherwise-valid files when a
+            // FilenameFilter is set, which blocks .iso/.cso/.pbp etc.
+            // We resolve the right core from the extension downstream.
             setVisible(true)
         }
         if (dialog.file != null && dialog.directory != null) {

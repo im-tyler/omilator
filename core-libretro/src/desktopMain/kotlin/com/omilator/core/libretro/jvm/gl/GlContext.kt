@@ -99,6 +99,16 @@ internal class GlContext private constructor(
     }
 
     companion object {
+        init {
+            // Disable LWJGL's strict thread check for GLFW. macOS Cocoa wants
+            // GLFW calls on the first thread of the process; that would require
+            // -XstartOnFirstThread, which breaks Compose Desktop's window init.
+            // With the check disabled, we can call GLFW from any thread.
+            // May fail at glfwCreateWindow time on macOS — if so, PSP / GameCube
+            // HW render needs a separate process or CGL backend.
+            org.lwjgl.system.Configuration.GLFW_CHECK_THREAD0.set(false)
+        }
+
         fun create(): GlContext {
             GLFWErrorCallback.createPrint(System.err).set()
             check(GLFW.glfwInit()) { "GLFW init failed" }

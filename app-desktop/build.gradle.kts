@@ -29,6 +29,13 @@ compose.desktop {
     application {
         mainClass = "com.omilator.app.MainKt"
 
+        // Note: -XstartOnFirstThread would be needed for LWJGL GLFW on macOS,
+        // but it breaks Compose Desktop's window initialization. Instead we
+        // disable LWJGL's thread check at runtime in Main.kt via
+        // Configuration.GLFW_CHECK_THREAD0.set(false). This may fail at
+        // glfwCreateWindow time; if so, PSP/GameCube HW render requires a
+        // separate process or CGL backend.
+
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "Omilator"

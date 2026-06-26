@@ -232,9 +232,10 @@ private fun resolveCorePath(romPath: String): String {
         "3ds", "3dsx", "cci", "cxi" -> "azahar_libretro"
         "nrg", "mdf", "gz" -> "play_libretro"
         "cdi", "gdi", "gdl" -> "flycast_libretro"
-        // .iso is ambiguous across PSP/GameCube/Wii/PS1/PS2/Dreamcast/Saturn.
-        // Caller should disambiguate via filename or system dir; default is PS1.
-        "iso" -> "beetle_psx_hw_libretro"
+        // .iso is genuinely ambiguous (PSP / GameCube / Wii / PS1 / PS2 / DC / Saturn).
+        // Default to PPSSPP since PSP ISOs are the most common modern-retro .iso use.
+        // User can rename to .pbp (unambiguous PS1) or .gcm (unambiguous GameCube).
+        "iso" -> "ppsspp_libretro"
         else -> "mgba_libretro"
     }
     val candidates = buildList {
