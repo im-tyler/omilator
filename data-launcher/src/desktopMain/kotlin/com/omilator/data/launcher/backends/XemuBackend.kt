@@ -1,8 +1,7 @@
 package com.omilator.data.launcher.backends
 
 import com.omilator.data.launcher.StandaloneBackend
-import com.omilator.data.launcher.backends.MacosAppLauncher.findApp
-import com.omilator.data.launcher.backends.MacosAppLauncher.launchBinary
+import com.omilator.data.launcher.backends.MacosAppLauncher
 
 /**
  * xemu (Original Xbox).
@@ -17,10 +16,16 @@ internal class XemuBackend : StandaloneBackend {
     override val systemId = "xbox"
     override val displayName = "xemu"
 
-    override fun findInstallation(): String? = findApp("xemu.app")
+    override fun findInstallation(): String? {
+        // brew installs as Xemu.app (capital X); lowercase variants exist too
+        return MacosAppLauncher.findApp("Xemu.app")
+            ?: MacosAppLauncher.findApp("xemu.app")
+    }
 
     override fun launch(romPath: String): Process? {
         val app = findInstallation() ?: return null
-        return launchBinary(app, "Contents/MacOS/xemu", listOf("-full-screen", "-cdrom", romPath))
+        // xemu binary is lowercase even though the .app is capital X
+        return MacosAppLauncher.launchBinary(app, "Contents/MacOS/xemu",
+            listOf("-full-screen", "-cdrom", romPath))
     }
 }

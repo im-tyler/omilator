@@ -1,8 +1,8 @@
 package com.omilator.data.launcher.backends
 
 import com.omilator.data.launcher.StandaloneBackend
-import com.omilator.data.launcher.backends.MacosAppLauncher.findApp
-import com.omilator.data.launcher.backends.MacosAppLauncher.launchOpenA
+import com.omilator.data.launcher.backends.MacosAppLauncher
+import java.io.File
 
 /**
  * Cemu (Wii U).
@@ -15,14 +15,23 @@ internal class CemuBackend : StandaloneBackend {
     override val systemId = "wii_u"
     override val displayName = "Cemu"
 
-    override fun findInstallation(): String? = findApp("Cemu.app")
+    override fun findInstallation(): String? {
+        // brew --cask installs as CEmu.app (capital E); official builds may be Cemu.app
+        return MacosAppLauncher.findApp("CEmu.app")
+            ?: MacosAppLauncher.findApp("Cemu.app")
+    }
 
     override fun launch(romPath: String): Process? {
-        return launchOpenA("Cemu", listOf("-g", romPath))
+        val app = findInstallation() ?: return null
+        val appName = File(app).nameWithoutExtension
+        // Cemu -g launches a game directly.
+        return MacosAppLauncher.launchOpenA(appName, listOf("-g", romPath))
     }
 
     override fun openSettings(): Process? {
-        // Launch the GUI without a ROM — user can edit game profiles there.
-        return launchOpenA("Cemu", emptyList())
+        // Launch the GUI without a ROM.
+        val app = findInstallation() ?: return null
+        val appName = File(app).nameWithoutExtension
+        return MacosAppLauncher.launchOpenA(appName, emptyList())
     }
 }
