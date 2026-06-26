@@ -90,14 +90,16 @@ internal class LibretroFfm(
         )
     }
 
-    fun installCallbacks() {
+    fun installEnvironmentCallback() {
         val env = upcallBound(
             "onEnvironment",
             MethodType.methodType(Boolean::class.javaPrimitiveType, Int::class.javaPrimitiveType, MemorySegment::class.java),
             FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.JAVA_INT, ValueLayout.ADDRESS),
         )
         setEnvironment!!.invoke(env)
+    }
 
+    fun installMediaCallbacks() {
         val video = upcallBound(
             "onVideo",
             MethodType.methodType(Void::class.javaPrimitiveType, MemorySegment::class.java, Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, Long::class.javaPrimitiveType),
@@ -132,6 +134,12 @@ internal class LibretroFfm(
             FunctionDescriptor.of(ValueLayout.JAVA_SHORT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT),
         )
         setInputState!!.invoke(inputState)
+    }
+
+    @Deprecated("Use installEnvironmentCallback + installMediaCallbacks in the canonical order", ReplaceWith("installEnvironmentCallback()"))
+    fun installCallbacks() {
+        installEnvironmentCallback()
+        installMediaCallbacks()
     }
 
     fun callInit() { initHandle!!.invoke() }
@@ -205,7 +213,8 @@ internal class LibretroFfm(
                 pixelFormat = data.reinterpret(4L).get(ValueLayout.JAVA_INT, 0)
                 true
             }
-            RetroEnv.GET_SYSTEM_DIRECTORY -> {
+            RetroEnv.GET_SYSTEM_DIRECTORY,
+            RetroEnv.GET_SAVE_DIRECTORY -> {
                 data.reinterpret(8L).set(ValueLayout.ADDRESS, 0, systemDirSeg)
                 true
             }

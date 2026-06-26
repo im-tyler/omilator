@@ -46,6 +46,7 @@ internal object LibretroLayouts {
 internal object RetroEnv {
     const val GET_API_VERSION = 0
     const val GET_SYSTEM_DIRECTORY = 9
+    const val GET_SAVE_DIRECTORY = 31
     const val SET_PIXEL_FORMAT = 10
     const val SET_INPUT_DESCRIPTORS = 11
     const val GET_VARIABLE = 15
@@ -58,7 +59,10 @@ internal object RetroEnv {
     const val SET_CORE_OPTIONS = 53
     const val GET_CORE_OPTIONS_UPDATE = 54
     const val SET_CONTROLLER_INFO = 35
+    const val GET_INPUT_INTERFACE = 23
     const val GET_INPUT_BITMASKS = 51
+    const val SET_HW_RENDER = 14
+    const val GET_PREFERRED_HW_RENDER = 36
 }
 
 internal object PixelFormatC {

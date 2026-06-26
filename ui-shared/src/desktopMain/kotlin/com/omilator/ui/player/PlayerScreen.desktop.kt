@@ -220,21 +220,28 @@ private fun resolveCorePath(romPath: String): String {
     val ext = File(romPath).extension.lowercase()
     val coreName = when (ext) {
         "gba", "gb", "gbc", "sgb" -> "mgba_libretro"
-        "nes", "nez" -> "mesen_libretro"
-        "sfc", "smc" -> "snes9x_libretro"
+        "nes", "nez", "unf", "unif" -> "mesen_libretro"
+        "sfc", "smc", "fig", "swc" -> "snes9x_libretro"
         "md", "bin", "smd", "gen" -> "genesis_plus_gx_libretro"
+        "n64", "z64", "v64" -> "mupen64plus_next_libretro"
+        "cue", "chd", "m3u", "pbp", "img" -> "beetle_psx_hw_libretro"
+        "nds", "ids", "app" -> "melonds_libretro"
+        "cso", "prx", "elf" -> "ppsspp_libretro"
+        "gcm", "gci", "ciso" -> "dolphin_libretro"
+        "wbfs", "wad", "gcz" -> "dolphin_libretro"
+        // .iso is ambiguous — PSP, GameCube, Wii, PS1 all use it. Prefer PS1
+        // (most common ISO usage in retro collections); player can rename or
+        // use cue/chd for unambiguous PS1.
+        "iso" -> "beetle_psx_hw_libretro"
         else -> "mgba_libretro"
     }
     val candidates = buildList {
         val exts = listOf("dylib", "so", "dll")
-        // 1. ./cores relative to CWD
         exts.forEach { add(File("cores/$coreName.$it")) }
-        // 2. ../cores (project root, when launched via gradle :app-desktop:run)
         exts.forEach { add(File("../cores/$coreName.$it")) }
-        // 3. ~/Library/Application Support/Omilator/cores
         val home = System.getProperty("user.home")
         exts.forEach { add(File("$home/Library/Application Support/Omilator/cores/$coreName.$it")) }
     }
     return candidates.firstOrNull { it.exists() }?.absolutePath
-        ?: File("cores/$coreName.dylib").absolutePath // fallback for error message
+        ?: File("cores/$coreName.dylib").absolutePath
 }

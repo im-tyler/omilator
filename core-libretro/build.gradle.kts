@@ -103,3 +103,16 @@ tasks.register<JavaExec>("phase5Verify") {
     workingDir = rootProject.projectDir
     jvmArgs("--enable-native-access=ALL-UNNAMED")
 }
+
+tasks.register<JavaExec>("coreLoaderTest") {
+    group = "verification"
+    description = "Load every bundled libretro core and report system info"
+
+    val desktopTarget = kotlin.targets.getByName("desktop")
+    val desktopCompilation = desktopTarget.compilations.getByName("main") as org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJvmCompilation
+
+    classpath = desktopCompilation.output.allOutputs + desktopCompilation.compileDependencyFiles
+    mainClass.set("com.omilator.core.libretro.jvm.CoreLoaderTestKt")
+    workingDir = rootProject.projectDir
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+}

@@ -11,17 +11,26 @@ enum class GameSystem(
     val preferredCore: String,
 ) {
     NES("Nintendo Entertainment System", "Nintendo", 1985, listOf("nes", "nez", "unf", "unif"), "mesen"),
-    SNES("Super Nintendo Entertainment System", "Nintendo", 1990, listOf("sfc", "smc", "fig", "swc"), "bsnes"),
+    SNES("Super Nintendo Entertainment System", "Nintendo", 1990, listOf("sfc", "smc", "fig", "swc"), "snes9x"),
     GAME_BOY("Game Boy", "Nintendo", 1989, listOf("gb"), "sameboy"),
     GAME_BOY_COLOR("Game Boy Color", "Nintendo", 1998, listOf("gbc"), "sameboy"),
     GAME_BOY_ADVANCE("Game Boy Advance", "Nintendo", 2001, listOf("gba"), "mgba"),
     GENESIS("Sega Genesis / Mega Drive", "Sega", 1988, listOf("md", "bin", "smd", "gen"), "genesis_plus_gx"),
     NINTENDO_64("Nintendo 64", "Nintendo", 1996, listOf("n64", "z64", "v64"), "mupen64plus_next"),
-    PLAYSTATION("PlayStation", "Sony", 1994, listOf("cue", "chd", "m3u"), "beetle_psx_hw");
+    PLAYSTATION("PlayStation", "Sony", 1994, listOf("cue", "chd", "m3u", "pbp", "img", "iso"), "beetle_psx_hw"),
+    NINTENDO_DS("Nintendo DS", "Nintendo", 2004, listOf("nds", "ids", "app"), "melonds"),
+    PSP("PlayStation Portable", "Sony", 2004, listOf("iso", "cso", "pbp", "prx", "elf"), "ppsspp"),
+    GAMECUBE("Nintendo GameCube", "Nintendo", 2001, listOf("gcm", "iso", "gci", "ciso"), "dolphin"),
+    WII("Nintendo Wii", "Nintendo", 2006, listOf("wbfs", "iso", "wad", "gcz", "ciso"), "dolphin");
 
     companion object {
-        fun detectByExtension(extension: String): GameSystem? =
-            entries.firstOrNull { sys -> sys.extensions.any { it.equals(extension, ignoreCase = true) } }
+        fun detectByExtension(extension: String): GameSystem? {
+            val ext = extension.lowercase()
+            // Prefer the most specific match. PSP .iso and GameCube .iso and PS1 .iso
+            // all collide on the iso extension, so iso resolves to the most likely
+            // (PS1) — callers can override by passing a different file in a system dir.
+            return entries.firstOrNull { sys -> sys.extensions.any { it.equals(ext, ignoreCase = true) } }
+        }
     }
 }
 

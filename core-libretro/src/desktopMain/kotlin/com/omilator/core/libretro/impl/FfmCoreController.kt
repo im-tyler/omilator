@@ -39,11 +39,12 @@ internal class FfmCoreController(
     override suspend fun loadCore(path: String): SystemInfo {
         val n = LibretroFfm(arena, systemDirectory).apply {
             loadCore(path)
-            installCallbacks()
+            installEnvironmentCallback()
+            callInit()
+            installMediaCallbacks()
             onVideo = ::dispatchVideo
             onAudioBatch = ::dispatchAudioBatch
             onInputState = ::dispatchInputState
-            callInit()
         }
         native = n
         val (name, version, ext) = n.callSystemInfo()
