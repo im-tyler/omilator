@@ -22,6 +22,7 @@ targets:
         excludes:
           - "project.yml"
           - "*.xcodeproj/**"
+          - "build/**"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.omilator.app

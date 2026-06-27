@@ -12,7 +12,7 @@ struct iOSApp: App {
 
 struct ContentView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIViewController {
-        RootViewController()
+        RootViewControllerKt.RootViewController()
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
