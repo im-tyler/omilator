@@ -26,6 +26,14 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
             implementation(project(":core-libretro"))
         }
+        val desktopMain by getting {
+            dependencies {
+                implementation("org.lwjgl:lwjgl:3.3.4")
+                implementation("org.lwjgl:lwjgl-glfw:3.3.4")
+                runtimeOnly("org.lwjgl:lwjgl:3.3.4:natives-macos-arm64")
+                runtimeOnly("org.lwjgl:lwjgl-glfw:3.3.4:natives-macos-arm64")
+            }
+        }
         commonTest.dependencies {
             implementation(kotlin("test"))
         }

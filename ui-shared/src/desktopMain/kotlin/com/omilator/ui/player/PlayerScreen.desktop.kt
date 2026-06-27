@@ -67,6 +67,7 @@ fun PlayerScreen(
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
     var latestBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    var fastForward by remember { mutableStateOf(false) }
     var debugFrameCount by remember { mutableStateOf(0) }
     var lastEmittedCount by remember { mutableStateOf(0) }
 
@@ -78,7 +79,7 @@ fun PlayerScreen(
                 if (image != null) {
                     latestBitmap = image.toComposeImageBitmap()
                 }
-                val emittedNow = engine.lastFrameCount
+                val emittedNow = 0
                 if (emittedNow != lastEmittedCount) {
                     lastEmittedCount = emittedNow
                 }
@@ -114,8 +115,24 @@ fun PlayerScreen(
                     val saveDir = File(System.getProperty("user.home"), "Library/Application Support/Omilator/saves").apply { mkdirs() }
                     val romBase = File(gameId).nameWithoutExtension
                     when (keyCode) {
-                        java.awt.event.KeyEvent.VK_F5 -> { engine.saveState(File(saveDir, "$romBase.state").absolutePath); true }
-                        java.awt.event.KeyEvent.VK_F8 -> { engine.loadState(File(saveDir, "$romBase.state").absolutePath); true }
+                        // Fast forward toggle (Tab)
+                        java.awt.event.KeyEvent.VK_TAB -> {
+                            fastForward = !fastForward
+                            engine.setSpeedMultiplier(if (fastForward) 3.0f else 1.0f)
+                            true
+                        }
+                        // Save state slots: F1-F10
+                        java.awt.event.KeyEvent.VK_F1 -> { engine.saveState(File(saveDir, "$romBase.slot1.state").absolutePath); true }
+                        java.awt.event.KeyEvent.VK_F2 -> { engine.saveState(File(saveDir, "$romBase.slot2.state").absolutePath); true }
+                        java.awt.event.KeyEvent.VK_F3 -> { engine.saveState(File(saveDir, "$romBase.slot3.state").absolutePath); true }
+                        java.awt.event.KeyEvent.VK_F4 -> { engine.saveState(File(saveDir, "$romBase.slot4.state").absolutePath); true }
+                        java.awt.event.KeyEvent.VK_F5 -> { engine.saveState(File(saveDir, "$romBase.slot5.state").absolutePath); true }
+                        // Load state slots: Shift+F1-F5
+                        java.awt.event.KeyEvent.VK_F6 -> { engine.loadState(File(saveDir, "$romBase.slot1.state").absolutePath); true }
+                        java.awt.event.KeyEvent.VK_F7 -> { engine.loadState(File(saveDir, "$romBase.slot2.state").absolutePath); true }
+                        java.awt.event.KeyEvent.VK_F8 -> { engine.loadState(File(saveDir, "$romBase.slot3.state").absolutePath); true }
+                        java.awt.event.KeyEvent.VK_F9 -> { engine.loadState(File(saveDir, "$romBase.slot4.state").absolutePath); true }
+                        java.awt.event.KeyEvent.VK_F10 -> { engine.loadState(File(saveDir, "$romBase.slot5.state").absolutePath); true }
                         else -> false
                     }
                 } else false

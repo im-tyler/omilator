@@ -1,6 +1,8 @@
 package com.omilator.ui.player
 
 import com.omilator.core.audio.AudioOutput
+import com.omilator.core.input.GamepadPoller
+import com.omilator.core.input.InputState
 import com.omilator.core.libretro.api.CoreController
 import com.omilator.core.libretro.api.Framebuffer
 import com.omilator.core.libretro.api.Geometry
@@ -33,50 +35,34 @@ class PlayerEngine(
     private val controller: CoreController = createCoreController(systemDirectory = defaultSystemDir())
     private val converter = FrameConverter()
     private val inputState = InputStateHolder()
+    private val gamepadPoller = GamepadPoller()
     private val latestFrame = AtomicReference<Framebuffer?>(null)
 
     private var frameLoop: Job? = null
     private var _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state.asStateFlow()
 
+    /** Speed multiplier for fast-forward (Tab) / slow-motion (Shift+Tab). */
+    private var speedMultiplier: Float = 1.0f
+
     suspend fun start() {
         _state.value = _state.value.copy(isLoading = true)
         try {
-            println("[Omilator] Loading core: $corePath")
-            println("[Omilator] ROM: $romPath")
-            println("[Omilator] ROM exists: ${java.io.File(romPath).exists()}")
-            println("[Omilator] Core exists: ${java.io.File(corePath).exists()}")
             controller.loadCore(corePath)
-            println("[Omilator] Core loaded")
             val avInfo = controller.loadGame(romPath)
-            println("[Omilator] Game loaded: ${avInfo.geometry.baseWidth}x${avInfo.geometry.baseHeight} @ ${avInfo.timing.fps}fps")
             controller.attach(
-                video = VideoSink { fb ->
-                    frameCounter.incrementAndGet()
-                    latestFrame.set(fb)
-                },
+                video = VideoSink { fb -> latestFrame.set(fb) },
                 audio = AudioSinkAdapter(audioOutput),
                 input = InputSourceAdapter(inputState),
             )
             audioOutput.configure(avInfo.timing.sampleRate, channels = 2)
-            _state.value = _state.value.copy(
-                isLoading = false,
-                geometry = avInfo.geometry,
-                fps = avInfo.timing.fps,
-            )
-            frameLoop = scope.launch {
-                println("[Omilator] Frame loop started, target ${avInfo.timing.fps}fps")
-                runLoop(avInfo.timing.fps)
-            }
+            gamepadPoller.init()
+            _state.value = _state.value.copy(isLoading = false, geometry = avInfo.geometry, fps = avInfo.timing.fps)
+            frameLoop = scope.launch { runLoop(avInfo.timing.fps) }
         } catch (t: Throwable) {
-            println("[Omilator] ERROR during start: ${t::class.simpleName}: ${t.message}")
-            t.printStackTrace()
             _state.value = _state.value.copy(isLoading = false, error = "${t::class.simpleName}: ${t.message}")
         }
     }
-
-    val frameCounter = java.util.concurrent.atomic.AtomicInteger(0)
-    val lastFrameCount: Int get() = frameCounter.get()
 
     fun stop() {
         frameLoop?.cancel()
@@ -106,17 +92,34 @@ class PlayerEngine(
     }
 
     private suspend fun runLoop(targetFps: Float) {
-        val intervalNanos = (1_000_000_000.0 / targetFps).toLong()
+        val baseIntervalNanos = (1_000_000_000.0 / targetFps).toLong()
         var nextDeadline = System.nanoTime()
         while (scope.isActive) {
+            // Poll gamepad before each frame
+            gamepadPoller.poll(
+                setButton = { btn, pressed ->
+                    if (pressed) inputState.press(btn) else inputState.release(btn)
+                },
+                setAnalog = { _, _ -> },  // analog support wired but not yet used by cores
+            )
+
             controller.runFrame()
-            nextDeadline += intervalNanos
+
+            // Adjust deadline by speed multiplier (fast forward / slow motion)
+            val interval = (baseIntervalNanos / speedMultiplier).toLong()
+            nextDeadline += interval
             val now = System.nanoTime()
             val wait = nextDeadline - now
             if (wait > 0) delay(wait / 1_000_000)
             else nextDeadline = now
         }
     }
+
+    fun setSpeedMultiplier(multiplier: Float) {
+        speedMultiplier = multiplier.coerceIn(0.1f, 10f)
+    }
+
+    fun getSpeedMultiplier(): Float = speedMultiplier
 }
 
 data class PlayerState(
