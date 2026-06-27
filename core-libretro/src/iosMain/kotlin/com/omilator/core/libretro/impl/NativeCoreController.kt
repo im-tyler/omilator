@@ -10,6 +10,11 @@ import platform.posix.dlopen
 import platform.posix.dlsym
 import platform.posix.dlclose
 import platform.posix.dlerror as _dlerror
+import platform.posix.fopen
+import platform.posix.fclose
+import platform.posix.fseek
+import platform.posix.ftell
+import platform.posix.fread
 
 @ThreadLocal
 internal var nativeControllerInstance: NativeCoreController? = null
@@ -123,20 +128,32 @@ internal class NativeCoreController : CoreController {
 
         // Allocate retro_game_info on nativeHeap, ZERO-INITIALIZED.
         // struct retro_game_info { char* path; void* data; size_t size; char* meta; } = 32 bytes
-        // If data/size are garbage, core tries to read ROM from memory instead of file.
         val info = nativeHeap.allocArray<ByteVar>(32)
-        // Zero all 32 bytes
         val zeroBytes = ByteArray(32)
         zeroBytes.copyInto(info.readBytes(32))
 
-        // Set path string (stable on nativeHeap)
-        val pathBytes = romPath.encodeToByteArray() + 0.toByte()
-        val pathBuf = nativeHeap.allocArray<ByteVar>(pathBytes.size)
-        pathBytes.copyInto(pathBuf.readBytes(pathBytes.size))
-        info.reinterpret<CPointerVar<ByteVar>>()[0] = pathBuf
-        // data (offset 8) = NULL (already zeroed)
-        // size (offset 16) = 0 (already zeroed)
-        // meta (offset 24) = NULL (already zeroed)
+        // mGBA can't fopen() inside the iOS Simulator sandbox — load ROM
+        // into memory and pass data+size instead of relying on path.
+        val romBytes = readRomToBytes(romPath)
+        val dataSize = romBytes.size
+
+        if (romBytes.isNotEmpty()) {
+            // Copy ROM data to nativeHeap
+            val dataBuf = nativeHeap.allocArray<ByteVar>(dataSize)
+            romBytes.copyInto(dataBuf.readBytes(dataSize))
+
+            // Set path (for metadata/display)
+            val pathBytes = romPath.encodeToByteArray() + 0.toByte()
+            val pathBuf = nativeHeap.allocArray<ByteVar>(pathBytes.size)
+            pathBytes.copyInto(pathBuf.readBytes(pathBytes.size))
+
+            // retro_game_info layout (arm64):
+            // offset 0: path (char*), offset 8: data (void*),
+            // offset 16: size (Long), offset 24: meta (char*)
+            info.reinterpret<CPointerVar<ByteVar>>()[0] = pathBuf
+            info.reinterpret<CPointerVar<ByteVar>>()[1] = dataBuf
+            info.reinterpret<LongVar>()[2] = dataSize.toLong()
+        }
 
         val ok = dlsym(handle, "retro_load_game")
             ?.reinterpret<CFunction<(CPointer<ByteVar>?) -> Boolean>>()
@@ -190,5 +207,23 @@ internal class NativeCoreController : CoreController {
             0, 9, 19, 31, 51, 69 -> true
             else -> false
         }
+    }
+}
+
+@OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+private fun readRomToBytes(path: String): ByteArray = memScoped {
+    // Use POSIX fopen/fread — avoids Foundation API quirks
+    val fp = fopen(path, "rb")
+        ?: throw RuntimeException("Cannot open ROM: $path")
+    try {
+        fseek(fp, 0, 2) // SEEK_END
+        val size = ftell(fp).toInt()
+        fseek(fp, 0, 0) // SEEK_SET
+        if (size <= 0) throw RuntimeException("ROM empty: $path")
+        val buf = allocArray<ByteVar>(size)
+        fread(buf, 1.toULong(), size.toULong(), fp)
+        buf.readBytes(size)
+    } finally {
+        fclose(fp)
     }
 }
