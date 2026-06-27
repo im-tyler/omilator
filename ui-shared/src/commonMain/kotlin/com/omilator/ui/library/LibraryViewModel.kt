@@ -71,7 +71,7 @@ class LibraryViewModel(
 
     fun rescan() = rescan(_state.value.scannedDirectories)
 
-    private fun rescan(directories: List<String>) {
+    fun rescan(directories: List<String>) {
         if (directories.isEmpty()) return
         scope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
