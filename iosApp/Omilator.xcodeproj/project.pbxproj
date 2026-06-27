@@ -7,13 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		88FD7FB6164C0AF97754301F /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_6487FC32-47F2-4A22-BFA6-7D273561C19B" /* iOSApp.swift */; };
+		D7FA69DAB20FB99CD8C0A634 /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_F03DFE6D-ADB6-4B83-A3E5-7763B3A68752" /* iOSApp.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		0103209F18157D58720404FA /* Omilator.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Omilator.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		"TEMP_0B9B5FE3-AB56-483C-9320-5FB3D89C2752" /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		"TEMP_6487FC32-47F2-4A22-BFA6-7D273561C19B" /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
+		"TEMP_0B8E2A60-E11A-4348-B9F4-012158F0A12C" /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		"TEMP_F03DFE6D-ADB6-4B83-A3E5-7763B3A68752" /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -32,11 +32,11 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		"TEMP_A081FF97-D360-4D6E-95BE-84D00F081467" /* . */ = {
+		"TEMP_1E034A9A-D1EC-4577-AEA0-5AB2D13AAC5C" /* . */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_6487FC32-47F2-4A22-BFA6-7D273561C19B" /* iOSApp.swift */,
-				"TEMP_0B9B5FE3-AB56-483C-9320-5FB3D89C2752" /* Info.plist */,
+				"TEMP_F03DFE6D-ADB6-4B83-A3E5-7763B3A68752" /* iOSApp.swift */,
+				"TEMP_0B8E2A60-E11A-4348-B9F4-012158F0A12C" /* Info.plist */,
 			);
 			name = .;
 			path = .;
@@ -97,7 +97,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				88FD7FB6164C0AF97754301F /* iOSApp.swift in Sources */,
+				D7FA69DAB20FB99CD8C0A634 /* iOSApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
