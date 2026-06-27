@@ -3,6 +3,7 @@ package com.omilator.ui.player
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -71,6 +73,8 @@ fun PlayerScreen(
     var isRewinding by remember { mutableStateOf(false) }
     var showCheatDialog by remember { mutableStateOf(false) }
     var cheatCode by remember { mutableStateOf("") }
+    var showOptionsDialog by remember { mutableStateOf(false) }
+    var scaleMode by remember { mutableStateOf(0) } // 0=aspect, 1=stretch, 2=integer
     var debugFrameCount by remember { mutableStateOf(0) }
     var lastEmittedCount by remember { mutableStateOf(0) }
 
@@ -119,6 +123,29 @@ fun PlayerScreen(
                     showCheatDialog = true
                     return@onKeyEvent true
                 }
+                // Core options: press O to open dialog
+                if (event.type == KeyEventType.KeyUp && keyCode == java.awt.event.KeyEvent.VK_O) {
+                    showOptionsDialog = true
+                    return@onKeyEvent true
+                }
+                // Video scaling: press S to cycle modes
+                if (event.type == KeyEventType.KeyUp && keyCode == java.awt.event.KeyEvent.VK_S) {
+                    scaleMode = (scaleMode + 1) % 3
+                    return@onKeyEvent true
+                }
+                // Volume: + / - keys
+                if (event.type == KeyEventType.KeyUp) {
+                    when (keyCode) {
+                        java.awt.event.KeyEvent.VK_EQUALS, java.awt.event.KeyEvent.VK_PLUS -> {
+                            engine.setVolume(engine.getVolume() + 0.1f)
+                            return@onKeyEvent true
+                        }
+                        java.awt.event.KeyEvent.VK_MINUS -> {
+                            engine.setVolume(engine.getVolume() - 0.1f)
+                            return@onKeyEvent true
+                        }
+                    }
+                }
                 val button = KeyboardMapping.buttonFor(keyCode)
                 if (button != null) {
                     when (event.type) {
@@ -159,7 +186,7 @@ fun PlayerScreen(
             state.error != null -> ErrorOverlay(state.error!!, corePath, gameId)
             state.isLoading -> LoadingOverlay(corePath, gameId)
             latestBitmap == null -> WaitingForFramesOverlay(corePath, gameId, debugFrameCount)
-            else -> EmulatedSurface(latestBitmap!!, state.geometry?.aspectRatio ?: 1.5f)
+            else -> EmulatedSurface(latestBitmap!!, state.geometry?.aspectRatio ?: 1.5f, scaleMode)
         }
 
         DebugOverlay(
@@ -206,17 +233,63 @@ fun PlayerScreen(
                 modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
             )
         }
+
+        // Core options dialog
+        if (showOptionsDialog) {
+            val options = remember { engine.getCoreOptions() }
+            val selections = remember { mutableStateMapOf<String, String>() }
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showOptionsDialog = false },
+                title = { Text("Emulator Settings") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (options.isEmpty()) {
+                            Text("This core has no configurable options.", style = MaterialTheme.typography.bodyMedium)
+                        } else {
+                            options.forEach { option ->
+                                Column {
+                                    Text(option.description, style = MaterialTheme.typography.labelLarge)
+                                    option.values.forEach { v ->
+                                        val current = selections[option.key] ?: option.default
+                                        androidx.compose.material3.TextButton(
+                                            onClick = {
+                                                selections[option.key] = v.value
+                                                engine.setOptionValue(option.key, v.value)
+                                            },
+                                        ) {
+                                            Text(
+                                                v.label,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = if (v.value == current) MaterialTheme.colorScheme.primary
+                                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = { showOptionsDialog = false }) { Text("Done") }
+                },
+            )
+        }
     }
 }
 
 @Composable
-private fun EmulatedSurface(bitmap: ImageBitmap, aspectRatio: Float) {
+private fun EmulatedSurface(bitmap: ImageBitmap, aspectRatio: Float, scaleMode: Int = 0) {
     Canvas(modifier = Modifier.fillMaxSize()) {
         val canvasW = size.width
         val canvasH = size.height
         val scaleX = canvasW / bitmap.width
         val scaleY = canvasH / bitmap.height
-        val scale = minOf(scaleX, scaleY)
+        val scale = when (scaleMode) {
+            1 -> maxOf(scaleX, scaleY)     // stretch (fill screen)
+            2 -> minOf(scaleX, scaleY).toInt().toFloat().coerceAtLeast(1f) // integer
+            else -> minOf(scaleX, scaleY)  // aspect (default)
+        }
         val drawW = bitmap.width * scale
         val drawH = bitmap.height * scale
         val dx = (canvasW - drawW) / 2f

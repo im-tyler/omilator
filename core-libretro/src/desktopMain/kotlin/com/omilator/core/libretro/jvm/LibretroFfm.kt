@@ -1,5 +1,7 @@
 package com.omilator.core.libretro.jvm
 
+import com.omilator.core.libretro.api.CoreOption
+import com.omilator.core.libretro.api.CoreOptionValue
 import com.omilator.core.libretro.api.PixelFormat
 import com.omilator.core.libretro.jvm.LibretroLayouts.cString
 import com.omilator.core.libretro.jvm.LibretroLayouts.gameGeometry
@@ -31,6 +33,12 @@ internal class LibretroFfm(
 
     var pixelFormat: Int = PixelFormatC.XRGB8888
         private set
+
+    /** Options declared by the core via SET_CORE_OPTIONS. */
+    val coreOptions: MutableList<CoreOption> = mutableListOf()
+
+    /** User-selected values for each option (key -> chosen value). */
+    var optionSelections: MutableMap<String, String> = mutableMapOf()
 
     private var apiVersion: MethodHandle? = null
     private var getSystemInfo: MethodHandle? = null
@@ -269,10 +277,28 @@ internal class LibretroFfm(
                 data.reinterpret(8L).set(ValueLayout.ADDRESS, 0, fnPtr)
                 true
             }
-            RetroEnv.GET_CAMERA_DRIVER,
+            RetroEnv.SET_CONTROLLER_INFO,
             RetroEnv.GET_TARGET_REFRESH_RATE,
             RetroEnv.GET_PREFERRED_HW_RENDER -> false
             RetroEnv.SET_HW_RENDER -> hwRender.handleRequest(data)
+
+            // ---- Core options ----
+            RetroEnv.SET_CORE_OPTIONS -> {
+                // cmd 53: data = retro_core_option_definition*
+                parseCoreOptions(data)
+                true
+            }
+            RetroEnv.SET_VARIABLES -> {
+                // cmd 12: older API, data = retro_variable[] (key/desc pairs)
+                true // accept but don't parse (legacy)
+            }
+            RetroEnv.GET_VARIABLE -> {
+                // cmd 15: data = retro_variable { key, value }
+                // Core wants the current value for an option. Read key, return stored.
+                handleGetVariable(data)
+            }
+            RetroEnv.GET_VARIABLE_UPDATE -> false // no variable changes pending
+
             else -> false
         }
         if (!handled && cmd !in silentEnvCmds) {
@@ -374,6 +400,79 @@ internal class LibretroFfm(
         val ptr = handle.get(structSeg) as MemorySegment
         if (ptr.address() == 0L) return ""
         return ptr.reinterpret(8192L).getUtf8String(0)
+    }
+
+    // ---- Core option parsing ----
+
+    private fun parseCoreOptions(data: MemorySegment) {
+        coreOptions.clear()
+        if (data.address() == 0L) return
+
+        val defSize = 40L // sizeof(retro_core_option_definition)
+        val valSize = 16L // sizeof(retro_core_option_value)
+        var offset = 0L
+
+        while (true) {
+            // Read key pointer at offset 0 of current definition
+            val keySeg = data.get(ValueLayout.ADDRESS, offset)
+            if (keySeg.address() == 0L) break // NULL key = end of array
+
+            val key = keySeg.reinterpret(256L).getUtf8String(0)
+            val descSeg = data.get(ValueLayout.ADDRESS, offset + 8)
+            val desc = if (descSeg.address() != 0L) descSeg.reinterpret(256L).getUtf8String(0) else key
+            val infoSeg = data.get(ValueLayout.ADDRESS, offset + 16)
+            val info = if (infoSeg.address() != 0L) infoSeg.reinterpret(1024L).getUtf8String(0) else null
+            val defaultSeg = data.get(ValueLayout.ADDRESS, offset + 24)
+            val defaultVal = if (defaultSeg.address() != 0L) defaultSeg.reinterpret(256L).getUtf8String(0) else ""
+
+            // Read values array
+            val valuesSeg = data.get(ValueLayout.ADDRESS, offset + 32)
+            val values = mutableListOf<CoreOptionValue>()
+            if (valuesSeg.address() != 0L) {
+                var valOffset = 0L
+                while (true) {
+                    val valuePtr = valuesSeg.get(ValueLayout.ADDRESS, valOffset)
+                    if (valuePtr.address() == 0L) break
+                    val value = valuePtr.reinterpret(256L).getUtf8String(0)
+                    val labelPtr = valuesSeg.get(ValueLayout.ADDRESS, valOffset + 8)
+                    val label = if (labelPtr.address() != 0L) labelPtr.reinterpret(256L).getUtf8String(0) else value
+                    values.add(CoreOptionValue(value, label))
+                    valOffset += valSize
+                }
+            }
+
+            coreOptions.add(CoreOption(key, desc, info, defaultVal, values))
+
+            // Store default value if not already set
+            if (key !in optionSelections) {
+                optionSelections[key] = defaultVal
+            }
+
+            offset += defSize
+        }
+
+        println("[Omilator] Parsed ${coreOptions.size} core options")
+    }
+
+    private fun handleGetVariable(data: MemorySegment): Boolean {
+        if (data.address() == 0L) return false
+        // retro_variable: { const char* key; const char* value; }
+        // Read the key
+        val keySeg = data.get(ValueLayout.ADDRESS, 0)
+        if (keySeg.address() == 0L) return false
+        val key = keySeg.reinterpret(256L).getUtf8String(0)
+
+        // Look up stored value
+        val value = optionSelections[key] ?: return false
+
+        // Write value pointer to offset 8
+        val valueSeg = arena.allocateUtf8String(value)
+        data.reinterpret(16L).set(ValueLayout.ADDRESS, 8, valueSeg)
+        return true
+    }
+
+    fun setOptionValue(key: String, value: String) {
+        optionSelections[key] = value
     }
 
     private fun SymbolLookup.down(name: String, fd: FunctionDescriptor): MethodHandle {

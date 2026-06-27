@@ -162,6 +162,15 @@ class PlayerEngine(
         controller.cheatReset()
         controller.cheatSet(0, true, code.trim())
     }
+
+    // ---- Core options ----
+    fun getCoreOptions() = controller.getCoreOptions()
+    fun setOptionValue(key: String, value: String) = controller.setOptionValue(key, value)
+
+    // ---- Audio volume ----
+    private var volume: Float = 1.0f
+    fun setVolume(v: Float) { volume = v.coerceIn(0f, 2f) }
+    fun getVolume(): Float = volume
 }
 
 data class PlayerState(

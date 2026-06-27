@@ -29,6 +29,10 @@ interface CoreController {
     fun loadStateFromMemory(bytes: ByteArray): Boolean
 
     fun cheatSet(index: Int, enabled: Boolean, code: String)
+
+    /** Core-specific options (resolution, accuracy, region, etc.). */
+    fun getCoreOptions(): List<CoreOption> = emptyList()
+    fun setOptionValue(key: String, value: String) {}
 }
 
 class CoreNotLoadedException(message: String) : RuntimeException(message)
