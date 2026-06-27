@@ -41,6 +41,7 @@ internal val audioBatchCb: COpaquePointer? = null
 
 internal val audioSampleCb = staticCFunction { left: Int, right: Int ->
     nativeControllerInstance?.audioSink?.onSamples(shortArrayOf(left.toShort(), right.toShort()))
+    Unit
 }
 
 // Input poll is a no-op — core handles polling via input_state callback
