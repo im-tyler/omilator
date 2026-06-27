@@ -1,0 +1,36 @@
+name: Omilator
+options:
+  bundleIdPrefix: com.omilator
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    ENABLE_BITCODE: NO
+    CODE_SIGNING_REQUIRED: NO
+    CODE_SIGNING_ALLOWED: NO
+
+targets:
+  Omilator:
+    type: application
+    platform: iOS
+    sources:
+      - path: .
+        excludes:
+          - "project.yml"
+          - "*.xcodeproj/**"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.omilator.app
+        INFOPLIST_FILE: Info.plist
+        MARKETING_VERSION: "0.2.0"
+        CURRENT_PROJECT_VERSION: "1"
+        # Link against the Kotlin/Native framework built by Gradle
+        FRAMEWORK_SEARCH_PATHS:
+          - "$(SRCROOT)/../ui-shared/build/bin/iosSimulatorArm64/debugFramework"
+          - "$(SRCROOT)/../ui-shared/build/bin/iosArm64/debugFramework"
+        OTHER_LDFLAGS:
+          - "-framework UiShared"

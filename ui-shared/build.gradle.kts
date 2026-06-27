@@ -20,6 +20,14 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "UiShared"
             isStatic = true
+            // Export all dependencies so the iOS app links a single framework
+            export(project(":core-libretro"))
+            export(project(":core-render"))
+            export(project(":core-audio"))
+            export(project(":core-input"))
+            export(project(":data-library"))
+            export(project(":data-settings"))
+            export(project(":data-saves"))
         }
     }
 
@@ -28,17 +36,19 @@ kotlin {
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
+            implementation(compose.ui)
             implementation(compose.components.resources)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
 
-            implementation(project(":core-libretro"))
-            implementation(project(":core-render"))
-            implementation(project(":core-audio"))
-            implementation(project(":core-input"))
-            implementation(project(":data-library"))
-            implementation(project(":data-settings"))
-            implementation(project(":data-saves"))
+            // API deps — exported into the UiShared.framework for iOS
+            api(project(":core-libretro"))
+            api(project(":core-render"))
+            api(project(":core-audio"))
+            api(project(":core-input"))
+            api(project(":data-library"))
+            api(project(":data-settings"))
+            api(project(":data-saves"))
         }
         commonTest.dependencies {
             implementation(kotlin("test"))

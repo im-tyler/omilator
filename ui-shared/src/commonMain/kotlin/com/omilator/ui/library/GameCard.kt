@@ -2,6 +2,7 @@ package com.omilator.ui.library
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -27,6 +29,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -51,6 +54,8 @@ fun GameCard(
         animationSpec = tween(durationMillis = 180),
         label = "cardElevation",
     )
+
+    val coverBitmap = rememberCoverArt(game)
 
     Column(
         modifier = modifier
@@ -83,6 +88,16 @@ fun GameCard(
                 ),
             contentAlignment = Alignment.BottomStart,
         ) {
+            // Cover art fills the card if available, otherwise gradient shows through
+            coverBitmap?.let { bmp ->
+                Image(
+                    bitmap = bmp,
+                    contentDescription = "${game.title} cover art",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+
             SystemBadge(
                 system = game.system,
                 modifier = Modifier.padding(10.dp),
