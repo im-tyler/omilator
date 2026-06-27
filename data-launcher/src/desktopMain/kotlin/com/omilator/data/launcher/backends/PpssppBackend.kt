@@ -14,15 +14,21 @@ internal class PpssppBackend : StandaloneBackend {
     override val displayName = "PPSSPP"
 
     override fun findInstallation(): String? {
-        // brew --cask installs as PPSSPPSDL.app; the .org download is PPSSPP.app.
         return MacosAppLauncher.findApp("PPSSPPSDL.app")
             ?: MacosAppLauncher.findApp("PPSSPP.app")
     }
 
     override fun launch(romPath: String): Process? {
         val app = findInstallation() ?: return null
-        val appName = File(app).name  // PPSSPPSDL.app or PPSSPP.app
-        // PPSSPP treats the first positional argument as a ROM to launch.
-        return MacosAppLauncher.launchOpenA(appName.removeSuffix(".app"), listOf(romPath))
+        val appName = File(app).name.removeSuffix(".app")
+        return MacosAppLauncher.launchOpenA(appName, listOf(romPath))
+    }
+
+    /** PPSSPP has no settings-only flag — launch GUI without ROM. */
+    override fun openSettingsGuiOnly(): Process? {
+        val app = findInstallation() ?: return null
+        val appName = File(app).name.removeSuffix(".app")
+        // Launch with no args — PPSSPP opens its main menu
+        return MacosAppLauncher.launchOpenA(appName, emptyList())
     }
 }

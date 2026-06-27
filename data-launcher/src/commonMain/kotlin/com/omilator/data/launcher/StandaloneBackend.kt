@@ -49,6 +49,13 @@ interface StandaloneBackend {
      * Implementations should override if a clean config-mode launch exists.
      */
     fun openSettings(): Process? = null
+
+    /**
+     * Launches the standalone GUI WITHOUT a ROM — used as fallback when
+     * [openSettings] returns null. Lets the user access the emulator's
+     * own settings menu without launching the game.
+     */
+    fun openSettingsGuiOnly(): Process? = null
 }
 
 /**

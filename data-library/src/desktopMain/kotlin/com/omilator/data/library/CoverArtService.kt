@@ -44,9 +44,12 @@ class CoverArtService(private val cacheDir: File) {
             localJpg.exists() -> return cacheFrom(localJpg, cacheFile)
         }
 
-        // 3. Try libretro-thumbnails GitHub CDN with multiple name variations
+        // 3. Try libretro-thumbnails GitHub CDN
+        // IMPORTANT: CDN filenames use the ORIGINAL ROM name (with region tags),
+        // NOT the cleaned title. We must match against the raw filename.
         val repoName = repoNameFor(game.system) ?: return cacheMiss(cacheFile)
-        for (variation in nameVariations(game.title)) {
+        val originalRomName = romFile.nameWithoutExtension
+        for (variation in nameVariations(originalRomName)) {
             val url = buildThumbnailUrl(repoName, variation)
             val result = tryFetch(url, cacheFile)
             if (result != null) return result

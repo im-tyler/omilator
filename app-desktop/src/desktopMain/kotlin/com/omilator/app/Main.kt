@@ -210,9 +210,11 @@ private fun openGameSettings(romPath: String) {
         println("[Omilator] Opening ${backend.displayName} settings for $romPath")
         val proc = backend.openSettings()
         if (proc == null) {
-            println("[Omilator] ${backend.displayName} doesn't support settings launch — launch GUI instead")
-            // For emulators without settings flag, just launch the GUI
-            backend.launch(romPath)
+            // Emulator has no settings-only launch mode.
+            // Launch the GUI WITHOUT the ROM — user accesses settings there.
+            // Do NOT launch the game.
+            println("[Omilator] ${backend.displayName} has no settings flag — launching GUI without ROM")
+            backend.openSettingsGuiOnly()
         }
     } else {
         println("[Omilator] No standalone settings for .$ext — libretro in-app settings coming soon")
