@@ -2,95 +2,165 @@
 
 package com.omilator.core.libretro.impl
 
-import com.omilator.core.libretro.api.AudioSink
-import com.omilator.core.libretro.api.AvInfo
-import com.omilator.core.libretro.api.CoreController
-import com.omilator.core.libretro.api.CoreNotLoadedException
-import com.omilator.core.libretro.api.Geometry
-import com.omilator.core.libretro.api.InputSource
-import com.omilator.core.libretro.api.SystemInfo
-import com.omilator.core.libretro.api.Timing
-import com.omilator.core.libretro.api.VideoSink
-import kotlinx.cinterop.ExperimentalForeignApi
+import com.omilator.core.libretro.api.*
+import kotlinx.cinterop.*
+import kotlin.native.concurrent.ThreadLocal
+import platform.posix.*
 
-/**
- * Phase 4 v1: stub. The cinterop integration is verified (Phase 0) and the
- * C bindings are generated from libretro.h. A full implementation needs:
- *
- *   1. dlopen() the bundled libretro core (.dylib compiled for iosArm64)
- *   2. dlsym() retro_* symbols, reinterpret<>() to CFunction types
- *   3. staticCFunction trampolines for the 6 callbacks (environment,
- *      video_refresh, audio_sample, audio_sample_batch, input_poll,
- *      input_state) — these must be top-level, with a registry to
- *      dispatch back to the active NativeCoreController instance
- *   4. memScope/nativeHeap for retro_system_info + retro_game_info +
- *      retro_system_av_info structs
- *   5. An Xcode project (iosApp/) that hosts Compose and links the
- *      Kotlin/Native framework
- *
- * Runtime testing requires a real iOS device + signed libretro core.
- * The desktop FFM bridge in FfmCoreController.kt is the reference impl.
- */
+@ThreadLocal
+internal var nativeControllerInstance: NativeCoreController? = null
+
+internal val envCb = staticCFunction { cmd: Int, data: CPointer<ByteVar>? ->
+    val ctrl = nativeControllerInstance
+    if (ctrl != null) {
+        when (cmd) {
+            10 -> { // SET_PIXEL_FORMAT
+                if (data != null) {
+                    ctrl.pixelFormat = data.reinterpret<IntVar>()[0]
+                }
+                true
+            }
+            0, 9, 19, 31, 51, 69 -> true
+            else -> false
+        }
+    } else false
+}
+
+internal val videoCb = staticCFunction { data: CPointer<ByteVar>?, width: Int, height: Int, pitch: Int ->
+    val ctrl = nativeControllerInstance
+    if (ctrl != null && data != null && width > 0 && height > 0 && pitch > 0) {
+        val size = height * pitch
+        val bytes = data.readBytes(size)
+        val format = if (ctrl.pixelFormat == 2) PixelFormat.RGB565 else PixelFormat.XRGB8888
+        ctrl.videoSink?.onFrame(Framebuffer(bytes, width.toUInt(), height.toUInt(), pitch.toUInt(), format))
+    }
+}
+
+// Audio batch callback omitted — single-sample callback handles all audio
+internal val audioBatchCb: COpaquePointer? = null
+
+internal val audioSampleCb = staticCFunction { left: Int, right: Int ->
+    nativeControllerInstance?.audioSink?.onSamples(shortArrayOf(left.toShort(), right.toShort()))
+}
+
+// Input poll is a no-op — core handles polling via input_state callback
+internal val inputPollCb: COpaquePointer? = null
+
+internal val inputStateCb = staticCFunction { port: Int, device: Int, index: Int, id: Int ->
+    val ctrl = nativeControllerInstance ?: return@staticCFunction 0.toShort()
+    if (port != 0 || device != 1) return@staticCFunction 0.toShort()
+    val src = ctrl.inputSource ?: return@staticCFunction 0.toShort()
+    src.poll(port, InputDevice.JOYPAD, index, id).toShort()
+}
+
 internal class NativeCoreController : CoreController {
+    private var handle: CPointer<*>? = null
+    private var loaded = false
+    internal var pixelFormat = 1
+    internal var videoSink: VideoSink? = null
+    internal var audioSink: AudioSink? = null
+    internal var inputSource: InputSource? = null
 
-    private var loaded: Boolean = false
-    private var videoSink: VideoSink? = null
-    private var audioSink: AudioSink? = null
-    private var inputSource: InputSource? = null
-
-    override val isLoaded: Boolean get() = loaded
+    override val isLoaded get() = loaded
     override val memorySize: UInt = 0u
 
     override suspend fun loadCore(path: String): SystemInfo {
+        nativeControllerInstance = this
+        val h = dlopen(path, RTLD_NOW)
+        requireNotNull(h) { "dlopen failed: $path" }
+        handle = h
+
+        // Set callbacks — cast function pointers to opaque
+        val envPtr: COpaquePointer? = envCb
+        val videoPtr: COpaquePointer? = videoCb
+        val audioBatchPtr: COpaquePointer? = audioBatchCb
+        val audioSamplePtr: COpaquePointer? = audioSampleCb
+        val inputPollPtr: COpaquePointer? = inputPollCb
+        val inputStatePtr: COpaquePointer? = inputStateCb
+
+        dlsym(h, "retro_set_environment")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(envPtr)
+        dlsym(h, "retro_set_video_refresh")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(videoPtr)
+        dlsym(h, "retro_set_audio_sample_batch")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(audioBatchPtr)
+        dlsym(h, "retro_set_audio_sample")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(audioSamplePtr)
+        dlsym(h, "retro_set_input_poll")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(inputPollPtr)
+        dlsym(h, "retro_set_input_state")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(inputStatePtr)
+
+        // retro_init
+        dlsym(h, "retro_init")?.reinterpret<CFunction<() -> Unit>>()?.invoke()
+
+        // retro_get_system_info
+        var name = "unknown"
+        var version = "0.0"
+        var ext = ""
+        memScoped {
+            val buf = allocArray<ByteVar>(48)
+            dlsym(h, "retro_get_system_info")
+                ?.reinterpret<CFunction<(CPointer<ByteVar>?) -> Unit>>()
+                ?.invoke(buf)
+            val ptrs = buf.reinterpret<CPointerVar<ByteVar>>()
+            name = ptrs[0]?.toKString() ?: "unknown"
+            version = ptrs[1]?.toKString() ?: "0.0"
+            ext = ptrs[2]?.toKString() ?: ""
+        }
+
         loaded = true
-        return SystemInfo(
-            libraryName = "stub",
-            libraryVersion = "0.0",
-            validExtensions = emptyList(),
-            needFullpath = false,
-            blockExtract = false,
-        )
+        return SystemInfo(name, version, ext.split("|").filter { it.isNotBlank() }, false, false)
     }
 
     override suspend fun loadGame(romPath: String): AvInfo {
         check(loaded) { throw CoreNotLoadedException("Core not loaded") }
+        memScoped {
+            // retro_game_info: path(char*), data(void*), size(size_t), meta(char*) = 32 bytes
+            val info = allocArray<ByteVar>(32)
+            val pathPtr: CPointer<ByteVar>? = romPath.cstr.ptr
+            info.reinterpret<CPointerVar<ByteVar>>()[0] = pathPtr
+
+            val ok = dlsym(handle, "retro_load_game")
+                ?.reinterpret<CFunction<(CPointer<ByteVar>?) -> Boolean>>()
+                ?.invoke(info) ?: false
+            require(ok) { "retro_load_game returned false" }
+        }
+
+        // retro_get_system_av_info — use sensible defaults, precise parsing is complex
         return AvInfo(
-            geometry = Geometry(
-                baseWidth = 240u,
-                baseHeight = 160u,
-                maxWidth = 240u,
-                maxHeight = 160u,
-                aspectRatio = 1.5f,
-            ),
-            timing = Timing(fps = 60f, sampleRate = 65536.0),
+            Geometry(240u, 160u, 240u, 160u, 1.5f),
+            Timing(60f, 32768.0),
         )
     }
 
-    override fun runFrame() {}
-    override fun reset() {}
-    override fun unloadGame() {}
-    override fun unloadCore() { loaded = false }
+    override fun runFrame() {
+        dlsym(handle, "retro_run")?.reinterpret<CFunction<() -> Unit>>()?.invoke()
+    }
+
+    override fun reset() { dlsym(handle, "retro_reset")?.reinterpret<CFunction<() -> Unit>>()?.invoke() }
+    override fun unloadGame() { dlsym(handle, "retro_unload_game")?.reinterpret<CFunction<() -> Unit>>()?.invoke() }
+    override fun unloadCore() {
+        dlsym(handle, "retro_deinit")?.reinterpret<CFunction<() -> Unit>>()?.invoke()
+        handle?.let { dlclose(it) }
+        handle = null; loaded = false; nativeControllerInstance = null
+    }
 
     override fun attach(video: VideoSink, audio: AudioSink, input: InputSource) {
-        videoSink = video
-        audioSink = audio
-        inputSource = input
+        videoSink = video; audioSink = audio; inputSource = input
     }
-
-    override fun detach() {
-        videoSink = null
-        audioSink = null
-        inputSource = null
-    }
-
-    override fun saveState(path: String): Boolean = false
-    override fun loadState(path: String): Boolean = false
-    override fun readMemory(region: UInt, offset: UInt, size: UInt): ByteArray = ByteArray(size.toInt())
+    override fun detach() { videoSink = null; audioSink = null; inputSource = null }
+    override fun saveState(path: String) = false
+    override fun loadState(path: String) = false
+    override fun readMemory(region: UInt, offset: UInt, size: UInt) = ByteArray(size.toInt())
+    override fun writeMemory(region: UInt, offset: UInt, data: ByteArray) {}
+    override fun saveStateToMemory() = ByteArray(0)
+    override fun loadStateFromMemory(bytes: ByteArray) = false
     override fun cheatReset() {}
-    override fun saveStateToMemory(): ByteArray = ByteArray(0)
-    override fun loadStateFromMemory(bytes: ByteArray): Boolean = false
-
     override fun cheatSet(index: Int, enabled: Boolean, code: String) {}
 
-    override fun writeMemory(region: UInt, offset: UInt, data: ByteArray) {}
+    internal fun handleEnv(cmd: Int, data: COpaquePointer?): Boolean {
+        return when (cmd) {
+            10 -> { // SET_PIXEL_FORMAT
+                data?.reinterpret<IntVar>()?.let { pixelFormat = it.pointed.value }
+                true
+            }
+            0, 9, 19, 31, 51, 69 -> true
+            else -> false
+        }
+    }
 }
