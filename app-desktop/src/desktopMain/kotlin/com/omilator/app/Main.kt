@@ -118,7 +118,6 @@ fun main() = application {
                         val coresDir = File(configDir, "cores")
                         val downloader = CoreDownloader(coresDir)
                         settingsViewModel.setCoresDownloading(true, "Starting...")
-                        // Update count before
                         settingsViewModel.setCoresStatus(downloader.installedCount(), downloader.cores.size)
                         val installed = downloader.downloadAll { status ->
                             settingsViewModel.setCoresDownloading(true, status)
@@ -126,6 +125,9 @@ fun main() = application {
                         settingsViewModel.setCoresStatus(installed, downloader.cores.size)
                         settingsViewModel.setCoresDownloading(false, "Done: $installed/${downloader.cores.size} cores installed")
                     }
+                },
+                onOpenGameSettings = { romPath ->
+                    openGameSettings(romPath)
                 },
             )
         }
@@ -188,6 +190,35 @@ private fun playRom(romPath: String, useLibretro: (String) -> Unit) {
  * and launch it. If no backend is installed for the system, prints to
  * stderr so the user knows which app to install.
  */
+/**
+ * Opens the appropriate settings for a game:
+ * - Standalone systems: launches the standalone emulator's settings/config UI
+ * - Libretro systems: prints a note (future: in-app settings dialog)
+ */
+private fun openGameSettings(romPath: String) {
+    val ext = File(romPath).extension.lowercase()
+    val systemId = when (ext) {
+        "iso", "cso", "prx" -> "psp"
+        "wbfs", "gcz", "wad", "gcm" -> "gamecube_wii"
+        "pkg", "rap" -> "ps3"
+        "wud", "wux" -> "wii_u"
+        "xiso" -> "xbox"
+        else -> null
+    }
+    val backend = systemId?.let { StandaloneRegistry().forSystem(it) }
+    if (backend != null) {
+        println("[Omilator] Opening ${backend.displayName} settings for $romPath")
+        val proc = backend.openSettings()
+        if (proc == null) {
+            println("[Omilator] ${backend.displayName} doesn't support settings launch — launch GUI instead")
+            // For emulators without settings flag, just launch the GUI
+            backend.launch(romPath)
+        }
+    } else {
+        println("[Omilator] No standalone settings for .$ext — libretro in-app settings coming soon")
+    }
+}
+
 private fun launchStandalone(romPath: String) {
     val ext = File(romPath).extension.lowercase()
     val systemId = when (ext) {

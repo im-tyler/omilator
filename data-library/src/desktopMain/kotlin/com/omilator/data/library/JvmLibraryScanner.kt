@@ -1,5 +1,6 @@
 package com.omilator.data.library
 
+import com.omilator.data.library.cleanRomTitle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -18,7 +19,7 @@ class JvmLibraryScanner : LibraryScanner {
                 val system = GameSystem.detectByExtension(file.extension)!!
                 Game(
                     id = file.absolutePath,
-                    title = file.nameWithoutExtension,
+                    title = cleanRomTitle(file.nameWithoutExtension),
                     system = system,
                     filePath = file.absolutePath,
                     fileSizeBytes = file.length(),

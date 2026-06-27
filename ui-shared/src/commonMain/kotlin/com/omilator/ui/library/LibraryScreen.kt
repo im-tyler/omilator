@@ -61,6 +61,7 @@ fun LibraryScreen(
     onOpenGame: (String) -> Unit,
     onQuickPlay: () -> Unit = {},
     onLaunchStandalone: () -> Unit = {},
+    onOpenGameSettings: (String) -> Unit = {},
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -123,7 +124,7 @@ fun LibraryScreen(
                 state.isLoading -> LoadingState()
                 state.games.isEmpty() -> EmptyState(onAddDirectory, onQuickPlay)
                 state.visibleGames.isEmpty() -> NoMatchesState()
-                else -> GridState(state.visibleGames, onOpenGame)
+                else -> GridState(state.visibleGames, onOpenGame, onOpenGameSettings)
             }
         }
     }
@@ -299,6 +300,7 @@ private fun NoMatchesState() {
 private fun GridState(
     games: List<Game>,
     onOpenGame: (String) -> Unit,
+    onOpenGameSettings: (String) -> Unit = {},
 ) {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 180.dp),
@@ -308,7 +310,11 @@ private fun GridState(
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         items(games, key = { it.id }) { game ->
-            GameCard(game = game, onClick = { onOpenGame(game.filePath) })
+            GameCard(
+                game = game,
+                onClick = { onOpenGame(game.filePath) },
+                onOpenSettings = { onOpenGameSettings(game.filePath) },
+            )
         }
     }
 }

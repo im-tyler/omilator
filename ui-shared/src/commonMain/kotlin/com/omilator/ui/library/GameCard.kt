@@ -16,7 +16,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,6 +47,7 @@ fun GameCard(
     game: Game,
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
@@ -88,7 +95,6 @@ fun GameCard(
                 ),
             contentAlignment = Alignment.BottomStart,
         ) {
-            // Cover art fills the card if available, otherwise gradient shows through
             coverBitmap?.let { bmp ->
                 Image(
                     bitmap = bmp,
@@ -96,6 +102,24 @@ fun GameCard(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                 )
+            }
+
+            // Settings button — top-right, visible on hover
+            if (isHovered) {
+                IconButton(
+                    onClick = onOpenSettings,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(28.dp),
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = Color.Black.copy(alpha = 0.5f),
+                    ),
+                ) {
+                    Icon(
+                        Icons.Rounded.Settings,
+                        contentDescription = "Game settings",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
             }
 
             SystemBadge(
