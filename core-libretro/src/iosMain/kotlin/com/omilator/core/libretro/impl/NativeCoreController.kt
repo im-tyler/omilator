@@ -5,7 +5,11 @@ package com.omilator.core.libretro.impl
 import com.omilator.core.libretro.api.*
 import kotlinx.cinterop.*
 import kotlin.native.concurrent.ThreadLocal
-import platform.posix.*
+import platform.posix.RTLD_NOW as _RTLD_NOW
+import platform.posix.dlopen
+import platform.posix.dlsym
+import platform.posix.dlclose
+import platform.posix.dlerror as _dlerror
 
 @ThreadLocal
 internal var nativeControllerInstance: NativeCoreController? = null
@@ -67,8 +71,11 @@ internal class NativeCoreController : CoreController {
 
     override suspend fun loadCore(path: String): SystemInfo {
         nativeControllerInstance = this
-        val h = dlopen(path, RTLD_NOW)
-        requireNotNull(h) { "dlopen failed: $path" }
+        val h = dlopen(path, _RTLD_NOW)
+        if (h == null) {
+            val err = _dlerror()?.toKString() ?: "unknown"
+            throw RuntimeException("dlopen failed: $path — $err")
+        }
         handle = h
 
         // Set callbacks — cast function pointers to opaque
