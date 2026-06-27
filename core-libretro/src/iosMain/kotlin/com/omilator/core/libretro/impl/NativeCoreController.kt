@@ -115,21 +115,26 @@ internal class NativeCoreController : CoreController {
         return SystemInfo(name, version, ext.split("|").filter { it.isNotBlank() }, false, false)
     }
 
+    // Persist game info struct — must survive beyond memScoped block
+    private var gameInfoNative: NativePlacement? = null
+
     override suspend fun loadGame(romPath: String): AvInfo {
         check(loaded) { throw CoreNotLoadedException("Core not loaded") }
-        memScoped {
-            // retro_game_info: path(char*), data(void*), size(size_t), meta(char*) = 32 bytes
-            val info = allocArray<ByteVar>(32)
-            val pathPtr: CPointer<ByteVar>? = romPath.cstr.ptr
-            info.reinterpret<CPointerVar<ByteVar>>()[0] = pathPtr
 
-            val ok = dlsym(handle, "retro_load_game")
-                ?.reinterpret<CFunction<(CPointer<ByteVar>?) -> Boolean>>()
-                ?.invoke(info) ?: false
-            require(ok) { "retro_load_game returned false" }
-        }
+        // Allocate retro_game_info on nativeHeap so it persists for the
+        // core's lifetime (retro_run accesses it).
+        val info = nativeHeap.allocArray<ByteVar>(32)
+        // Copy the path string to nativeHeap for stability
+        val pathBytes = romPath.encodeToByteArray() + 0.toByte()
+        val pathBuf = nativeHeap.allocArray<ByteVar>(pathBytes.size)
+        pathBytes.copyInto(pathBuf.readBytes(pathBytes.size))
+        info.reinterpret<CPointerVar<ByteVar>>()[0] = pathBuf
 
-        // retro_get_system_av_info — use sensible defaults, precise parsing is complex
+        val ok = dlsym(handle, "retro_load_game")
+            ?.reinterpret<CFunction<(CPointer<ByteVar>?) -> Boolean>>()
+            ?.invoke(info) ?: false
+        require(ok) { "retro_load_game returned false" }
+
         return AvInfo(
             Geometry(240u, 160u, 240u, 160u, 1.5f),
             Timing(60f, 32768.0),
@@ -137,11 +142,18 @@ internal class NativeCoreController : CoreController {
     }
 
     override fun runFrame() {
-        dlsym(handle, "retro_run")?.reinterpret<CFunction<() -> Unit>>()?.invoke()
+        try {
+            dlsym(handle, "retro_run")?.reinterpret<CFunction<() -> Unit>>()?.invoke()
+        } catch (e: Throwable) {
+            println("[NativeCoreController] retro_run threw: ${e.message}")
+        }
     }
 
     override fun reset() { dlsym(handle, "retro_reset")?.reinterpret<CFunction<() -> Unit>>()?.invoke() }
-    override fun unloadGame() { dlsym(handle, "retro_unload_game")?.reinterpret<CFunction<() -> Unit>>()?.invoke() }
+    override fun unloadGame() {
+        dlsym(handle, "retro_unload_game")?.reinterpret<CFunction<() -> Unit>>()?.invoke()
+        gameInfoNative = null
+    }
     override fun unloadCore() {
         dlsym(handle, "retro_deinit")?.reinterpret<CFunction<() -> Unit>>()?.invoke()
         handle?.let { dlclose(it) }
