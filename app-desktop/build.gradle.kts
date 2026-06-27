@@ -42,6 +42,11 @@ compose.desktop {
             packageName = "Omilator"
             packageVersion = "1.0.0"
 
+            // LWJGL and coroutines need sun.misc.Unsafe — include the module
+            // in the stripped JRE that Compose Desktop creates via jlink.
+            modules("jdk.unsupported")
+            modules("java.management")
+
             macOS {
                 bundleID = "com.omilator.app"
                 dockName = "Omilator"
