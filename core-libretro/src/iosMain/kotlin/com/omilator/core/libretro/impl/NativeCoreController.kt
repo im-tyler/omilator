@@ -138,9 +138,11 @@ internal class NativeCoreController : CoreController {
         val dataSize = romBytes.size
 
         if (romBytes.isNotEmpty()) {
-            // Copy ROM data to nativeHeap
+            // Copy ROM data to nativeHeap — write each byte, not readBytes!
             val dataBuf = nativeHeap.allocArray<ByteVar>(dataSize)
-            romBytes.copyInto(dataBuf.readBytes(dataSize))
+            for (i in 0 until dataSize) {
+                dataBuf[i] = romBytes[i]
+            }
 
             // Set path (for metadata/display)
             val pathBytes = romPath.encodeToByteArray() + 0.toByte()
@@ -167,6 +169,10 @@ internal class NativeCoreController : CoreController {
     }
 
     override fun runFrame() {
+        // CRITICAL: set thread-local on THIS thread (runFrame runs on a
+        // different coroutine thread than loadCore). Without this, callbacks
+        // find nativeControllerInstance = null → EXC_BAD_ACCESS.
+        nativeControllerInstance = this
         try {
             dlsym(handle, "retro_run")?.reinterpret<CFunction<() -> Unit>>()?.invoke()
         } catch (e: Throwable) {
