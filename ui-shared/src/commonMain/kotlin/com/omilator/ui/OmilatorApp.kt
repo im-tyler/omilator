@@ -45,6 +45,7 @@ fun OmilatorApp(
     onDownloadCores: () -> Unit = {},
     onOpenGameSettings: (String) -> Unit = {},
     onDownloadEmulators: () -> Unit = {},
+    isDesktop: Boolean = false,
 ) {
     val windowClass = currentWindowSizeClass()
     var destination by rememberSaveable { mutableStateOf(OmilatorDestination.LIBRARY) }
@@ -83,6 +84,7 @@ fun OmilatorApp(
                         onOpenGame = onPlayRom,
                         onQuickPlay = onQuickPlay,
                         onLaunchStandalone = onLaunchStandalone,
+                        showStandalone = isDesktop,
                         onOpenGameSettings = onOpenGameSettings,
                     )
                     OmilatorDestination.SETTINGS -> SettingsScreen(
@@ -90,6 +92,7 @@ fun OmilatorApp(
                         onAddDirectory = onAddRomDirectory,
                         onDownloadCores = onDownloadCores,
                             onDownloadEmulators = onDownloadEmulators,
+                            isDesktop = isDesktop,
                     )
                 }
             }
@@ -120,6 +123,7 @@ fun OmilatorApp(
                             onOpenGame = onPlayRom,
                             onQuickPlay = onQuickPlay,
                             onLaunchStandalone = onLaunchStandalone,
+                        showStandalone = isDesktop,
                         onOpenGameSettings = onOpenGameSettings,
                         )
                         OmilatorDestination.SETTINGS -> SettingsScreen(
@@ -127,6 +131,7 @@ fun OmilatorApp(
                             onAddDirectory = onAddRomDirectory,
                             onDownloadCores = onDownloadCores,
                             onDownloadEmulators = onDownloadEmulators,
+                            isDesktop = isDesktop,
                         )
                     }
                 }

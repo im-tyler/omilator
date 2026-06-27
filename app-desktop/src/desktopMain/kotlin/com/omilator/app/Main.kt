@@ -171,6 +171,7 @@ fun main() = application {
                 libraryViewModel = libraryViewModel,
                 settingsViewModel = settingsViewModel,
                 onAddRomDirectory = onAddRomDirectory,
+                isDesktop = true,
                 onPlayRom = { path -> playRom(path) { romPath -> playing = romPath } },
                 onQuickPlay = {
                     pickRomFile()?.let { path -> playRom(path) { romPath -> playing = romPath } }

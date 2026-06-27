@@ -18,5 +18,6 @@ fun RootViewController() = ComposeUIViewController {
         settingsViewModel = SettingsViewModel(),
         onAddRomDirectory = {},
         onPlayRom = {},
+        isDesktop = false,
     )
 }

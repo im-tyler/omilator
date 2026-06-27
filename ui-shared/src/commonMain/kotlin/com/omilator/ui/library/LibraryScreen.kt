@@ -62,6 +62,7 @@ fun LibraryScreen(
     onQuickPlay: () -> Unit = {},
     onLaunchStandalone: () -> Unit = {},
     onOpenGameSettings: (String) -> Unit = {},
+    showStandalone: Boolean = true,
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -77,7 +78,9 @@ fun LibraryScreen(
                     )
                 },
                 actions = {
-                    TextButton(onClick = onLaunchStandalone) { Text("Standalone") }
+                    if (showStandalone) {
+                        TextButton(onClick = onLaunchStandalone) { Text("Standalone") }
+                    }
                     IconButton(onClick = onQuickPlay) {
                         Icon(Icons.Rounded.PlayArrow, contentDescription = "Open ROM file")
                     }

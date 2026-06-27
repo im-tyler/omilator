@@ -99,6 +99,7 @@ fun SettingsScreen(
     onAddDirectory: () -> Unit,
     onDownloadCores: () -> Unit = {},
     onDownloadEmulators: () -> Unit = {},
+    isDesktop: Boolean = false,
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -147,7 +148,7 @@ fun SettingsScreen(
             }
         }
 
-        item {
+        if (isDesktop) item {
             SettingsCard(title = "Emulator cores") {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
@@ -216,7 +217,7 @@ fun SettingsScreen(
             }
         }
 
-        item {
+        if (isDesktop) item {
             SettingsCard(title = "Standalone emulators") {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
@@ -241,7 +242,7 @@ fun SettingsScreen(
             }
         }
 
-        item {
+        if (isDesktop) item {
             SettingsCard(title = "Cover art") {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
