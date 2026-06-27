@@ -60,9 +60,8 @@ fun GameCard(
                 indication = null,
                 onClick = onClick,
             )
-            .graphicsLayerSafeScale(scale),
+            .graphicsLayer(scaleX = scale, scaleY = scale),
     ) {
-        // Cover-art pane — 3:4 aspect, like Apple TV / Photos app
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -112,7 +111,7 @@ private fun SystemBadge(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(6.dp))
-            .background(Color.Black.copy(alpha = 0.45f))
+            .background(Color.Black.copy(alpha = 0.55f))
             .padding(horizontal = 8.dp, vertical = 4.dp),
     ) {
         Text(
@@ -124,11 +123,24 @@ private fun SystemBadge(
     }
 }
 
-// Helper to apply scale cleanly
-private fun Modifier.graphicsLayerSafeScale(scale: Float): Modifier =
-    this.graphicsLayer(scaleX = scale, scaleY = scale)
-
-// shortLabel() is defined in LibraryScreen.kt and shared via internal visibility.
+internal fun GameSystem.shortLabel(): String = when (this) {
+    GameSystem.NES -> "NES"
+    GameSystem.SNES -> "SNES"
+    GameSystem.GAME_BOY -> "GB"
+    GameSystem.GAME_BOY_COLOR -> "GBC"
+    GameSystem.GAME_BOY_ADVANCE -> "GBA"
+    GameSystem.GENESIS -> "MD"
+    GameSystem.NINTENDO_64 -> "N64"
+    GameSystem.PLAYSTATION -> "PS1"
+    GameSystem.NINTENDO_DS -> "DS"
+    GameSystem.PSP -> "PSP"
+    GameSystem.GAMECUBE -> "GC"
+    GameSystem.WII -> "Wii"
+    GameSystem.NINTENDO_3DS -> "3DS"
+    GameSystem.PLAYSTATION_2 -> "PS2"
+    GameSystem.DREAMCAST -> "DC"
+    GameSystem.SATURN -> "SAT"
+}
 
 private fun coverTopFor(system: GameSystem): Color = when (system) {
     GameSystem.NES -> Color(0xFFB23A48)

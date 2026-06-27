@@ -30,7 +30,8 @@ class CoverArtService(private val cacheDir: File) {
      */
     fun resolveCover(game: Game): File? {
         // 1. Check cache
-        val cacheFile = File(cacheDir, "${game.system.name}/${sanitizeFileName(game.title)}.png")
+        val cacheKey = sanitizeFileName(game.title)
+        val cacheFile = File(cacheDir, "${game.system.name}/$cacheKey.png")
         if (cacheFile.exists() && cacheFile.length() > 0) return cacheFile
         if (cacheFile.exists() && cacheFile.length() == 0L) return null  // cached miss
 
@@ -43,10 +44,47 @@ class CoverArtService(private val cacheDir: File) {
             localJpg.exists() -> return cacheFrom(localJpg, cacheFile)
         }
 
-        // 3. Try libretro-thumbnails GitHub CDN
+        // 3. Try libretro-thumbnails GitHub CDN with multiple name variations
         val repoName = repoNameFor(game.system) ?: return cacheMiss(cacheFile)
-        val url = buildThumbnailUrl(repoName, game.title)
-        return tryFetch(url, cacheFile) ?: cacheMiss(cacheFile)
+        for (variation in nameVariations(game.title)) {
+            val url = buildThumbnailUrl(repoName, variation)
+            val result = tryFetch(url, cacheFile)
+            if (result != null) return result
+        }
+        return cacheMiss(cacheFile)
+    }
+
+    /**
+     * Generates name variations to try against the thumbnail repo.
+     * ROM naming conventions vary (No-Intro, GoodROM, scene), so we try:
+     *   1. Exact ROM title
+     *   2. Without region tags: strip (USA), (Europe), (Japan), etc.
+     *   3. Without language tags: strip (En,Fr,De), (En,Fr,De,Es,It)
+     *   4. Without both region and language
+     *   5. Title only (everything before first parenthesis)
+     */
+    private fun nameVariations(title: String): List<String> {
+        val variations = linkedSetOf(title)
+
+        // Strip language tags: (En,Fr,De) etc.
+        val noLang = title.replace(Regex("\\s*\\([A-Z][a-z](?:,[A-Z][a-z])*[^)]*\\)\\s*(?=[(]|$)"), "").trim()
+        variations.add(noLang)
+
+        // Strip region tags: (USA), (Europe), (Japan), (USA, Europe) etc.
+        val noRegion = title.replace(Regex("\\s*\\((?:USA|Europe|Japan|World|Asia|Australia|Germany|France|Spain|Italy|Korea|China|Brazil|Canada)(?:,\\s*(?:USA|Europe|Japan|World|Asia|Australia|Germany|France|Spain|Italy|Korea|China|Brazil|Canada))*\\)"), "").trim()
+        variations.add(noRegion)
+
+        // Strip both
+        val noBoth = noRegion.replace(Regex("\\s*\\([A-Z][a-z](?:,[A-Z][a-z])*[^)]*\\)\\s*(?=[(]|$)"), "").trim()
+        variations.add(noBoth)
+
+        // Title only — everything before the first parenthetical
+        val titleOnly = title.substringBefore(" (").trim()
+        if (titleOnly.isNotEmpty() && titleOnly != title) {
+            variations.add(titleOnly)
+        }
+
+        return variations.filter { it.isNotBlank() }.toList()
     }
 
     private fun buildThumbnailUrl(repoName: String, romTitle: String): String {

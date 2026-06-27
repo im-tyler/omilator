@@ -22,6 +22,7 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.omilator.data.launcher.StandaloneRegistry
+import com.omilator.data.library.CoreDownloader
 import com.omilator.data.library.JvmLibraryScanner
 import com.omilator.data.library.LibraryRepository
 import com.omilator.data.settings.SettingsStore
@@ -31,6 +32,9 @@ import com.omilator.ui.OmilatorTheme
 import com.omilator.ui.library.LibraryViewModel
 import com.omilator.ui.player.PlayerScreen
 import com.omilator.ui.settings.SettingsViewModel
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
@@ -57,6 +61,13 @@ fun main() = application {
         )
     }
     val settingsViewModel = remember { SettingsViewModel() }
+
+    // Populate cores count on startup
+    kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        val coresDir = File(configDir, "cores")
+        val downloader = CoreDownloader(coresDir)
+        settingsViewModel.setCoresStatus(downloader.installedCount(), downloader.cores.size)
+    }
 
     val onAddRomDirectory: () -> Unit = {
         pickRomDirectory()?.let { dir ->
@@ -101,6 +112,20 @@ fun main() = application {
                 },
                 onLaunchStandalone = {
                     pickRomFile()?.let { path -> launchStandalone(path) }
+                },
+                onDownloadCores = {
+                    kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        val coresDir = File(configDir, "cores")
+                        val downloader = CoreDownloader(coresDir)
+                        settingsViewModel.setCoresDownloading(true, "Starting...")
+                        // Update count before
+                        settingsViewModel.setCoresStatus(downloader.installedCount(), downloader.cores.size)
+                        val installed = downloader.downloadAll { status ->
+                            settingsViewModel.setCoresDownloading(true, status)
+                        }
+                        settingsViewModel.setCoresStatus(installed, downloader.cores.size)
+                        settingsViewModel.setCoresDownloading(false, "Done: $installed/${downloader.cores.size} cores installed")
+                    }
                 },
             )
         }

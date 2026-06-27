@@ -313,22 +313,5 @@ private fun GridState(
     }
 }
 
-// Used by GameCard — short label per system
-internal fun GameSystem.shortLabel(): String = when (this) {
-    GameSystem.NES -> "NES"
-    GameSystem.SNES -> "SNES"
-    GameSystem.GAME_BOY -> "GB"
-    GameSystem.GAME_BOY_COLOR -> "GBC"
-    GameSystem.GAME_BOY_ADVANCE -> "GBA"
-    GameSystem.GENESIS -> "MD"
-    GameSystem.NINTENDO_64 -> "N64"
-    GameSystem.PLAYSTATION -> "PS1"
-    GameSystem.NINTENDO_DS -> "DS"
-    GameSystem.PSP -> "PSP"
-    GameSystem.GAMECUBE -> "GC"
-    GameSystem.WII -> "Wii"
-    GameSystem.NINTENDO_3DS -> "3DS"
-    GameSystem.PLAYSTATION_2 -> "PS2"
-    GameSystem.DREAMCAST -> "DC"
-    GameSystem.SATURN -> "SAT"
-}
+// shortLabel() is defined in GameCard.kt
+

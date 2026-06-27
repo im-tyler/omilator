@@ -23,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,6 +39,10 @@ import kotlinx.coroutines.flow.asStateFlow
 data class SettingsUiState(
     val theme: AppTheme = AppTheme.SYSTEM,
     val libraryDirectories: List<String> = emptyList(),
+    val coresInstalled: Int = 0,
+    val coresTotal: Int = 14,
+    val coresDownloading: Boolean = false,
+    val coresStatus: String = "",
 )
 
 class SettingsViewModel {
@@ -61,12 +66,21 @@ class SettingsViewModel {
     fun removeDirectory(dir: String) {
         setDirectories(_state.value.libraryDirectories - dir)
     }
+
+    fun setCoresStatus(installed: Int, total: Int) {
+        _state.value = _state.value.copy(coresInstalled = installed, coresTotal = total)
+    }
+
+    fun setCoresDownloading(downloading: Boolean, status: String = "") {
+        _state.value = _state.value.copy(coresDownloading = downloading, coresStatus = status)
+    }
 }
 
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     onAddDirectory: () -> Unit,
+    onDownloadCores: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -110,6 +124,31 @@ fun SettingsScreen(
                                 ),
                             )
                         }
+                    }
+                }
+            }
+        }
+
+        item {
+            SettingsCard(title = "Emulator cores") {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "${state.coresInstalled} of ${state.coresTotal} cores installed",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    if (state.coresStatus.isNotEmpty()) {
+                        Text(
+                            state.coresStatus,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    TextButton(
+                        onClick = onDownloadCores,
+                        enabled = !state.coresDownloading && state.coresInstalled < state.coresTotal,
+                    ) {
+                        Text(if (state.coresDownloading) "Downloading..." else "Download missing cores")
                     }
                 }
             }
@@ -165,7 +204,7 @@ fun SettingsScreen(
                     SettingLine("Omilator", "0.2.0")
                     SettingLine("Engine", "Kotlin Multiplatform + Compose")
                     SettingLine("Cores", "libretro via FFM")
-                    SettingLine("Bridge", "C log bridge + GL HW render")
+                    SettingLine("Launcher", "Standalone for PSP/GC/Wii/PS3/WiiU/Xbox")
                 }
             }
         }
