@@ -222,20 +222,29 @@ private fun launchStandalone(romPath: String) {
  * Native macOS file picker via AWT FileDialog. Far more reliable than
  * JFileChooser on macOS — actually appears in front and respects system theme.
  */
+/**
+ * Native macOS directory picker. Uses apple.awt.fileDialogForDirectories
+ * to show a proper folder-selection dialog (the default FileDialog only
+ * selects files, which is why "Add directory" wasn't working).
+ */
 private fun pickRomDirectory(): String? {
+    // Tell macOS to use directory-selection mode
+    System.setProperty("apple.awt.fileDialogForDirectories", "true")
     val frame = JFrame().apply { isUndecorated = true; isVisible = true; extendedState = Frame.ICONIFIED }
     return try {
-        val dialog = FileDialog(frame, "Select ROM directory", FileDialog.LOAD).apply {
-            isMultipleMode = false
-            setFilenameFilter { _, name -> File(name).isDirectory }
-            isVisible = true
-        }
-        dialog.directory?.let { dir ->
-            val selected = if (dialog.file != null) File(dir, dialog.file) else File(dir)
-            if (selected.isDirectory) selected.absolutePath else null
+        val dialog = FileDialog(frame, "Select ROM directory", FileDialog.LOAD)
+        dialog.isVisible = true  // blocks until user picks or cancels
+        // When fileDialogForDirectories=true, directory+file together form the path
+        val dir = dialog.directory
+        val file = dialog.file
+        when {
+            dir != null && file != null -> File(dir, file).takeIf { it.isDirectory }?.absolutePath
+            dir != null -> File(dir).takeIf { it.isDirectory }?.absolutePath
+            else -> null
         }
     } finally {
         frame.dispose()
+        System.setProperty("apple.awt.fileDialogForDirectories", "false")
     }
 }
 

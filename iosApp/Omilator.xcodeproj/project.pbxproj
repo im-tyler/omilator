@@ -7,19 +7,90 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		FCB2D17F37A93BF9A95F5882 /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_BC1BD3E0-8F64-426B-BE34-2603DA06842B" /* iOSApp.swift */; };
+		3B81F1C6C1230FBBCAA75E46 /* LogStoreManifest.plist in Resources */ = {isa = PBXBuildFile; fileRef = C7DF3A16040174B5BE9CF579 /* LogStoreManifest.plist */; };
+		5F4EEAE44F6054BC3AEFE199 /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_6FBD565F-D162-4103-9ED4-B1A107560802" /* iOSApp.swift */; };
+		65B5D350DDA825BF896F42A3 /* LogStoreManifest.plist in Resources */ = {isa = PBXBuildFile; fileRef = 87832E8B0812250627739FFA /* LogStoreManifest.plist */; };
+		8224BD8EEA1A87F790D30404 /* LogStoreManifest.plist in Resources */ = {isa = PBXBuildFile; fileRef = 4E8776E67027F1E3B9E27878 /* LogStoreManifest.plist */; };
+		A748E05F6D47EB83B4685EAF /* LogStoreManifest.plist in Resources */ = {isa = PBXBuildFile; fileRef = DFB597438810F909B59AC838 /* LogStoreManifest.plist */; };
+		D815D4C0CDD2E345CA421CAD /* LogStoreManifest.plist in Resources */ = {isa = PBXBuildFile; fileRef = 66B6F9788028B605AAD54E05 /* LogStoreManifest.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		0103209F18157D58720404FA /* Omilator.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Omilator.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		"TEMP_35CDAF7E-F348-4180-BB90-C24C7BEBA4A8" /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		"TEMP_BC1BD3E0-8F64-426B-BE34-2603DA06842B" /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
+		4E8776E67027F1E3B9E27878 /* LogStoreManifest.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = LogStoreManifest.plist; sourceTree = "<group>"; };
+		66B6F9788028B605AAD54E05 /* LogStoreManifest.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = LogStoreManifest.plist; sourceTree = "<group>"; };
+		87832E8B0812250627739FFA /* LogStoreManifest.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = LogStoreManifest.plist; sourceTree = "<group>"; };
+		C7DF3A16040174B5BE9CF579 /* LogStoreManifest.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = LogStoreManifest.plist; sourceTree = "<group>"; };
+		DFB597438810F909B59AC838 /* LogStoreManifest.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = LogStoreManifest.plist; sourceTree = "<group>"; };
+		"TEMP_4ACE866B-D695-4773-8394-EF40D46D22A7" /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		"TEMP_6FBD565F-D162-4103-9ED4-B1A107560802" /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		44C78E99F49324470D52EA7A /* Launch */ = {
+			isa = PBXGroup;
+			children = (
+				DFB597438810F909B59AC838 /* LogStoreManifest.plist */,
+			);
+			path = Launch;
+			sourceTree = "<group>";
+		};
+		5C08534D3EB9F888C82850DD /* Build */ = {
+			isa = PBXGroup;
+			children = (
+				C7DF3A16040174B5BE9CF579 /* LogStoreManifest.plist */,
+			);
+			path = Build;
+			sourceTree = "<group>";
+		};
+		5CD68904A120E78803E935B7 /* build */ = {
+			isa = PBXGroup;
+			children = (
+				70FFE3A16CD43FEE457663F6 /* Logs */,
+			);
+			path = build;
+			sourceTree = "<group>";
+		};
+		70FFE3A16CD43FEE457663F6 /* Logs */ = {
+			isa = PBXGroup;
+			children = (
+				5C08534D3EB9F888C82850DD /* Build */,
+				44C78E99F49324470D52EA7A /* Launch */,
+				BBBB7B68CE80AB9CB9628C9D /* Localization */,
+				C601B19C2ECAD5D4AA386DEB /* Package */,
+				C422F67E85A2B221EF9D47BE /* Test */,
+			);
+			path = Logs;
+			sourceTree = "<group>";
+		};
+		BBBB7B68CE80AB9CB9628C9D /* Localization */ = {
+			isa = PBXGroup;
+			children = (
+				66B6F9788028B605AAD54E05 /* LogStoreManifest.plist */,
+			);
+			path = Localization;
+			sourceTree = "<group>";
+		};
+		C422F67E85A2B221EF9D47BE /* Test */ = {
+			isa = PBXGroup;
+			children = (
+				4E8776E67027F1E3B9E27878 /* LogStoreManifest.plist */,
+			);
+			path = Test;
+			sourceTree = "<group>";
+		};
+		C601B19C2ECAD5D4AA386DEB /* Package */ = {
+			isa = PBXGroup;
+			children = (
+				87832E8B0812250627739FFA /* LogStoreManifest.plist */,
+			);
+			path = Package;
+			sourceTree = "<group>";
+		};
 		D70B4BDB9504F4F1B2B8BD9C = {
 			isa = PBXGroup;
 			children = (
+				5CD68904A120E78803E935B7 /* build */,
 				F8BA1B37DF7B45C372EEE930 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -32,11 +103,12 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		"TEMP_60D26EC4-DB6E-4E1F-A9E9-0973EEB2675F" /* . */ = {
+		"TEMP_B82130ED-6080-428C-AFA2-47D8542542B4" /* . */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_BC1BD3E0-8F64-426B-BE34-2603DA06842B" /* iOSApp.swift */,
-				"TEMP_35CDAF7E-F348-4180-BB90-C24C7BEBA4A8" /* Info.plist */,
+				"TEMP_6FBD565F-D162-4103-9ED4-B1A107560802" /* iOSApp.swift */,
+				"TEMP_4ACE866B-D695-4773-8394-EF40D46D22A7" /* Info.plist */,
+				5CD68904A120E78803E935B7 /* build */,
 			);
 			name = .;
 			path = .;
@@ -50,6 +122,7 @@
 			buildConfigurationList = 435E5AF7DDD7F1408D5EB045 /* Build configuration list for PBXNativeTarget "Omilator" */;
 			buildPhases = (
 				785DBD533591D67942DADDF5 /* Sources */,
+				5A6D1A0B8C592FE35703264A /* Resources */,
 			);
 			buildRules = (
 			);
@@ -92,12 +165,27 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		5A6D1A0B8C592FE35703264A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8224BD8EEA1A87F790D30404 /* LogStoreManifest.plist in Resources */,
+				A748E05F6D47EB83B4685EAF /* LogStoreManifest.plist in Resources */,
+				3B81F1C6C1230FBBCAA75E46 /* LogStoreManifest.plist in Resources */,
+				65B5D350DDA825BF896F42A3 /* LogStoreManifest.plist in Resources */,
+				D815D4C0CDD2E345CA421CAD /* LogStoreManifest.plist in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		785DBD533591D67942DADDF5 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FCB2D17F37A93BF9A95F5882 /* iOSApp.swift in Sources */,
+				5F4EEAE44F6054BC3AEFE199 /* iOSApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
