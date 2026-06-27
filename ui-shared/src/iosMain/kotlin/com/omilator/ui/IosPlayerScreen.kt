@@ -6,7 +6,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.Button
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -97,10 +100,20 @@ fun IosPlayerScreen(romPath: String, corePath: String) {
     ) {
         when {
             error != null -> {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Error: $error", color = Color.White, style = MaterialTheme.typography.bodyMedium)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(24.dp),
+                ) {
+                    Text("Error", color = Color.White, style = MaterialTheme.typography.headlineMedium)
+                    Spacer(Modifier.height(8.dp))
+                    Text(error!!, color = Color(0xFFFF6B6B), style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(4.dp))
                     Text("Core: $corePath", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
                     Text("ROM: $romPath", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = {
+                        platform.UIKit.UIPasteboard.generalPasteboard().string = "${error}\nCore: $corePath\nROM: $romPath"
+                    }) { Text("Copy Error") }
                 }
             }
             isLoading -> {
