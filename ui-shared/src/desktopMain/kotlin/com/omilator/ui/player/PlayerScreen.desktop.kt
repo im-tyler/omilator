@@ -68,6 +68,9 @@ fun PlayerScreen(
 
     var latestBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     var fastForward by remember { mutableStateOf(false) }
+    var isRewinding by remember { mutableStateOf(false) }
+    var showCheatDialog by remember { mutableStateOf(false) }
+    var cheatCode by remember { mutableStateOf("") }
     var debugFrameCount by remember { mutableStateOf(0) }
     var lastEmittedCount by remember { mutableStateOf(0) }
 
@@ -75,6 +78,9 @@ fun PlayerScreen(
     LaunchedEffect(Unit) {
         while (true) {
             withFrameNanos { _ ->
+                if (isRewinding) {
+                    engine.rewindStep()
+                }
                 val image = engine.renderFrameIfAvailable()
                 if (image != null) {
                     latestBitmap = image.toComposeImageBitmap()
@@ -101,6 +107,16 @@ fun PlayerScreen(
                 val keyCode = event.key.nativeKeyCode
                 if (event.type == KeyEventType.KeyUp && keyCode == java.awt.event.KeyEvent.VK_ESCAPE) {
                     onClose()
+                    return@onKeyEvent true
+                }
+                // Rewind: hold Backspace to step backwards
+                if (keyCode == java.awt.event.KeyEvent.VK_BACK_SPACE) {
+                    isRewinding = event.type == KeyEventType.KeyDown
+                    return@onKeyEvent true
+                }
+                // Cheats: press C to open dialog
+                if (event.type == KeyEventType.KeyUp && keyCode == java.awt.event.KeyEvent.VK_C) {
+                    showCheatDialog = true
                     return@onKeyEvent true
                 }
                 val button = KeyboardMapping.buttonFor(keyCode)
@@ -150,9 +166,46 @@ fun PlayerScreen(
             corePath = corePath,
             romPath = gameId,
             geometry = state.geometry,
-            framesEmitted = debugFrameCount,
+            framesEmitted = 0,
             modifier = Modifier.align(Alignment.TopStart),
         )
+
+        // Cheat dialog
+        if (showCheatDialog) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showCheatDialog = false },
+                title = { Text("Enter Cheat Code") },
+                text = {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = cheatCode,
+                        onValueChange = { cheatCode = it },
+                        placeholder = { Text("e.g. 010138CD or GAME GENIE code") },
+                        singleLine = true,
+                    )
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = {
+                        if (cheatCode.isNotBlank()) {
+                            engine.applyCheat(cheatCode)
+                        }
+                        showCheatDialog = false
+                    }) { Text("Apply") }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { showCheatDialog = false }) { Text("Cancel") }
+                },
+            )
+        }
+
+        // Fast forward indicator
+        if (fastForward) {
+            Text(
+                ">> ${engine.getSpeedMultiplier()}x",
+                color = Color(0x80FFFFFF),
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+            )
+        }
     }
 }
 

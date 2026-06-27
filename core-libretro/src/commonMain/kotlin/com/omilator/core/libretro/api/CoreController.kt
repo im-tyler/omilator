@@ -21,6 +21,14 @@ interface CoreController {
     val memorySize: UInt
     fun readMemory(region: UInt, offset: UInt, size: UInt): ByteArray
     fun writeMemory(region: UInt, offset: UInt, data: ByteArray)
+
+    /** Cheats — Game Genie / Game Shark / Code Breaker codes. */
+    fun cheatReset()
+    /** Save/load state to/from memory (for rewind buffer). */
+    fun saveStateToMemory(): ByteArray
+    fun loadStateFromMemory(bytes: ByteArray): Boolean
+
+    fun cheatSet(index: Int, enabled: Boolean, code: String)
 }
 
 class CoreNotLoadedException(message: String) : RuntimeException(message)

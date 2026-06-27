@@ -18,7 +18,12 @@ import java.net.URLEncoder
  * Covers are cached at <cacheDir>/<system>/<rom-name>.png to avoid
  * re-fetching on subsequent library scans.
  */
-class CoverArtService(private val cacheDir: File) {
+class CoverArtService(
+    private val cacheDir: File,
+    private val theGamesDbKey: String? = null,
+) {
+
+    private val theGamesDb = TheGamesDbService(theGamesDbKey)
 
     init {
         cacheDir.mkdirs()
@@ -44,7 +49,16 @@ class CoverArtService(private val cacheDir: File) {
             localJpg.exists() -> return cacheFrom(localJpg, cacheFile)
         }
 
-        // 3. Try libretro-thumbnails GitHub CDN
+        // 3. Try TheGamesDB (if API key configured) — best coverage
+        if (theGamesDb.isActive) {
+            val coverUrl = theGamesDb.fetchCoverUrl(game.title, game.system)
+            if (coverUrl != null) {
+                val result = tryFetch(coverUrl, cacheFile)
+                if (result != null) return result
+            }
+        }
+
+        // 4. Try libretro-thumbnails GitHub CDN
         // IMPORTANT: CDN filenames use the ORIGINAL ROM name (with region tags),
         // NOT the cleaned title. We must match against the raw filename.
         val repoName = repoNameFor(game.system) ?: return cacheMiss(cacheFile)

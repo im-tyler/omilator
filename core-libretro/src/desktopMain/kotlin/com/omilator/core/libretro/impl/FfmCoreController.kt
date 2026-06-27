@@ -149,6 +149,10 @@ internal class FfmCoreController(
 
     override fun readMemory(region: UInt, offset: UInt, size: UInt): ByteArray = ByteArray(size.toInt())
     override fun writeMemory(region: UInt, offset: UInt, data: ByteArray) {}
+    override fun cheatReset() { native?.callCheatReset() }
+    override fun cheatSet(index: Int, enabled: Boolean, code: String) { native?.callCheatSet(index, enabled, code) }
+    override fun saveStateToMemory(): ByteArray = native?.callSerialize() ?: ByteArray(0)
+    override fun loadStateFromMemory(bytes: ByteArray): Boolean = native?.callUnserialize(bytes) ?: false
 
     private fun dispatchVideo(data: MemorySegment, width: Int, height: Int, pitch: Long) {
         val format = when (native?.pixelFormat ?: PixelFormatC.XRGB8888) {

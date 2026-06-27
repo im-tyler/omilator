@@ -50,6 +50,8 @@ internal class LibretroFfm(
     private var serializeSizeHandle: MethodHandle? = null
     private var serializeHandle: MethodHandle? = null
     private var unserializeHandle: MethodHandle? = null
+    private var cheatResetHandle: MethodHandle? = null
+    private var cheatSetHandle: MethodHandle? = null
 
     private val systemDirSeg = arena.allocateUtf8String(systemDirectory)
     val hwRender: HwRenderBridge = HwRenderBridge(arena)
@@ -106,6 +108,11 @@ internal class LibretroFfm(
         unserializeHandle = sym.down(
             "retro_unserialize",
             FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG),
+        )
+        cheatResetHandle = sym.down("retro_cheat_reset", FunctionDescriptor.ofVoid())
+        cheatSetHandle = sym.down(
+            "retro_cheat_set",
+            FunctionDescriptor.ofVoid(ValueLayout.JAVA_INT, ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS),
         )
     }
 
@@ -185,6 +192,13 @@ internal class LibretroFfm(
         val buf = arena.allocate(size)
         MemorySegment.copy(bytes, 0, buf, ValueLayout.JAVA_BYTE, 0, bytes.size)
         return unserializeHandle!!.invoke(buf, size) as Boolean
+    }
+
+    fun callCheatReset() { cheatResetHandle?.invoke() }
+
+    fun callCheatSet(index: Int, enabled: Boolean, code: String) {
+        val codeSeg = arena.allocateUtf8String(code)
+        cheatSetHandle?.invoke(index, enabled, codeSeg)
     }
 
     fun callApiVersion(): Int = apiVersion!!.invoke() as Int

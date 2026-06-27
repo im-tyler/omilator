@@ -86,5 +86,11 @@ internal class NativeCoreController : CoreController {
     override fun saveState(path: String): Boolean = false
     override fun loadState(path: String): Boolean = false
     override fun readMemory(region: UInt, offset: UInt, size: UInt): ByteArray = ByteArray(size.toInt())
+    override fun cheatReset() {}
+    override fun saveStateToMemory(): ByteArray = ByteArray(0)
+    override fun loadStateFromMemory(bytes: ByteArray): Boolean = false
+
+    override fun cheatSet(index: Int, enabled: Boolean, code: String) {}
+
     override fun writeMemory(region: UInt, offset: UInt, data: ByteArray) {}
 }

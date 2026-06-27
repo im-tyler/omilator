@@ -82,7 +82,21 @@ class PlayerEngine(
         inputState.release(button)
     }
 
-    fun saveState(path: String): Boolean = controller.saveState(path)
+    fun saveState(path: String): Boolean {
+        val ok = controller.saveState(path)
+        // Also save a thumbnail of the current frame
+        if (ok) {
+            val frame = latestFrame.get()
+            if (frame != null) {
+                try {
+                    val img = converter.convert(frame)
+                    val thumbPath = path.replace(".state", ".png")
+                    javax.imageio.ImageIO.write(img, "PNG", java.io.File(thumbPath))
+                } catch (_: Throwable) {}
+            }
+        }
+        return ok
+    }
 
     fun loadState(path: String): Boolean = controller.loadState(path)
 
@@ -104,6 +118,7 @@ class PlayerEngine(
             )
 
             controller.runFrame()
+            tickRewind()
 
             // Adjust deadline by speed multiplier (fast forward / slow motion)
             val interval = (baseIntervalNanos / speedMultiplier).toLong()
@@ -120,6 +135,33 @@ class PlayerEngine(
     }
 
     fun getSpeedMultiplier(): Float = speedMultiplier
+
+    // ---- Rewind system ----
+    private val rewindBuffer = java.util.ArrayDeque<ByteArray>()
+    private var rewindFrameCounter = 0
+
+    fun tickRewind() {
+        rewindFrameCounter++
+        if (rewindFrameCounter >= 10) {
+            rewindFrameCounter = 0
+            try {
+                val state = controller.saveStateToMemory()
+                rewindBuffer.addLast(state)
+                while (rewindBuffer.size > 300) rewindBuffer.removeFirst()
+            } catch (_: Throwable) {}
+        }
+    }
+
+    fun rewindStep(): Boolean {
+        val state = rewindBuffer.pollLast() ?: return false
+        return controller.loadStateFromMemory(state)
+    }
+
+    // ---- Cheats ----
+    fun applyCheat(code: String) {
+        controller.cheatReset()
+        controller.cheatSet(0, true, code.trim())
+    }
 }
 
 data class PlayerState(
@@ -156,3 +198,4 @@ private class AudioSinkAdapter(private val output: AudioOutput) : com.omilator.c
         output.write(samples)
     }
 }
+
