@@ -104,16 +104,16 @@ fun IosPlayerScreen(romPath: String, corePath: String) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(24.dp),
                 ) {
-                    Text("Error", color = Color.White, style = MaterialTheme.typography.headlineMedium)
+                    Button(onClick = {
+                        platform.UIKit.UIPasteboard.generalPasteboard().string = "$error\nCore: $corePath\nROM: $romPath"
+                    }) { Text("Copy Error") }
+                    Spacer(Modifier.height(16.dp))
+                    Text("Error", color = Color.White, style = MaterialTheme.typography.titleLarge)
                     Spacer(Modifier.height(8.dp))
-                    Text(error!!, color = Color(0xFFFF6B6B), style = MaterialTheme.typography.bodyMedium)
+                    Text(error!!, color = Color(0xFFFF6B6B), style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(4.dp))
                     Text("Core: $corePath", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
                     Text("ROM: $romPath", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
-                    Spacer(Modifier.height(16.dp))
-                    Button(onClick = {
-                        platform.UIKit.UIPasteboard.generalPasteboard().string = "${error}\nCore: $corePath\nROM: $romPath"
-                    }) { Text("Copy Error") }
                 }
             }
             isLoading -> {
