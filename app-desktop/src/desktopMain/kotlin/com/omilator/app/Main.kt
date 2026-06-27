@@ -1,8 +1,18 @@
 package com.omilator.app
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -15,6 +25,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
@@ -33,8 +44,8 @@ import com.omilator.ui.OmilatorTheme
 import com.omilator.ui.library.LibraryViewModel
 import com.omilator.ui.player.PlayerScreen
 import com.omilator.ui.settings.SettingsViewModel
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import java.awt.FileDialog
 import java.awt.Frame
@@ -51,6 +62,7 @@ fun main() = application {
 
     val configDir = remember { defaultConfigDir() }
     val settingsPath = remember { File(configDir, "settings.json").absolutePath }
+    val coresDir = remember { File(configDir, "cores") }
     val libraryViewModel = remember {
         LibraryViewModel(
             repository = LibraryRepository(JvmLibraryScanner()),
@@ -63,11 +75,51 @@ fun main() = application {
     }
     val settingsViewModel = remember { SettingsViewModel() }
 
-    // Populate cores count on startup
-    kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-        val coresDir = File(configDir, "cores")
-        val downloader = CoreDownloader(coresDir)
-        settingsViewModel.setCoresStatus(downloader.installedCount(), downloader.cores.size)
+    // ---- First-run auto-setup: download missing cores + emulators ----
+    var setupNeeded by remember { mutableStateOf(false) }
+    var setupStatus by remember { mutableStateOf("") }
+    var setupProgress by remember { mutableStateOf(0f) }
+
+    // Check on startup what's missing
+    val coreDownloader = remember { CoreDownloader(coresDir) }
+    val emulatorInstaller = remember { EmulatorInstaller() }
+    val coresMissing = coreDownloader.cores.size - coreDownloader.installedCount()
+    val emulatorsMissing = emulatorInstaller.emulators.size - emulatorInstaller.installedCount()
+
+    if (coresMissing > 0 || emulatorsMissing > 0) {
+        setupNeeded = true
+    }
+
+    // Run the auto-download
+    LaunchedEffect(Unit) {
+        if (!setupNeeded) return@LaunchedEffect
+        val totalSteps = coresMissing + emulatorsMissing
+        var done = 0
+
+        // Cores first
+        for (entry in coreDownloader.cores) {
+            if (!coreDownloader.isInstalled(entry)) {
+                setupStatus = "Downloading ${entry.name} (${entry.system})..."
+                coreDownloader.download(entry) { }
+                done++
+                setupProgress = done.toFloat() / totalSteps
+            }
+        }
+
+        // Then emulators
+        for (spec in emulatorInstaller.emulators) {
+            if (!emulatorInstaller.isInstalled(spec)) {
+                setupStatus = "Downloading ${spec.displayName}..."
+                emulatorInstaller.install(spec) { msg -> setupStatus = msg }
+                done++
+                setupProgress = done.toFloat() / totalSteps
+            }
+        }
+
+        setupStatus = "Setup complete"
+        settingsViewModel.setCoresStatus(coreDownloader.installedCount(), coreDownloader.cores.size)
+        settingsViewModel.setEmulatorsStatus(emulatorInstaller.installedCount(), emulatorInstaller.emulators.size)
+        setupNeeded = false
     }
 
     val onAddRomDirectory: () -> Unit = {
@@ -115,8 +167,7 @@ fun main() = application {
                     pickRomFile()?.let { path -> launchStandalone(path) }
                 },
                 onDownloadCores = {
-                    kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        val coresDir = File(configDir, "cores")
+                    GlobalScope.launch(Dispatchers.IO) {
                         val downloader = CoreDownloader(coresDir)
                         settingsViewModel.setCoresDownloading(true, "Starting...")
                         settingsViewModel.setCoresStatus(downloader.installedCount(), downloader.cores.size)
@@ -127,11 +178,9 @@ fun main() = application {
                         settingsViewModel.setCoresDownloading(false, "Done: $installed/${downloader.cores.size} cores installed")
                     }
                 },
-                onOpenGameSettings = { romPath ->
-                    openGameSettings(romPath)
-                },
+                onOpenGameSettings = { romPath -> openGameSettings(romPath) },
                 onDownloadEmulators = {
-                    kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    GlobalScope.launch(Dispatchers.IO) {
                         val installer = EmulatorInstaller()
                         settingsViewModel.setEmulatorsStatus(installer.installedCount(), installer.emulators.size)
                         settingsViewModel.setEmulatorsDownloading(true, "Starting...")
@@ -147,6 +196,39 @@ fun main() = application {
                     }
                 },
             )
+        }
+
+        // First-run setup dialog overlay
+        if (setupNeeded) {
+            OmilatorTheme {
+                AlertDialog(
+                    onDismissRequest = { /* don't dismiss — wait for completion */ },
+                    title = { Text("Setting up Omilator") },
+                    text = {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxSize().padding(16.dp),
+                        ) {
+                            CircularProgressIndicator(
+                                progress = { setupProgress },
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                            Text(
+                                setupStatus.ifBlank { "Checking for missing components..." },
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    },
+                    confirmButton = {},
+                    dismissButton = {
+                        TextButton(onClick = { setupNeeded = false }) {
+                            Text("Skip")
+                        }
+                    },
+                )
+            }
         }
     }
 }

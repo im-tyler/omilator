@@ -20,6 +20,8 @@ kotlin {
                 implementation(project(":data-settings"))
                 implementation(project(":data-launcher"))
                 implementation(compose.desktop.currentOs)
+                implementation(compose.material3)
+                implementation(compose.foundation)
                 implementation(libs.kotlinx.coroutines.swing)
             }
         }
