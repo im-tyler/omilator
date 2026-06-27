@@ -37,6 +37,7 @@ import com.omilator.data.launcher.StandaloneRegistry
 import com.omilator.data.library.CoreDownloader
 import com.omilator.data.library.JvmLibraryScanner
 import com.omilator.data.library.LibraryRepository
+import com.omilator.data.settings.AppSettings
 import com.omilator.data.settings.SettingsStore
 import com.omilator.data.settings.defaultConfigDir
 import com.omilator.ui.OmilatorApp
@@ -74,6 +75,17 @@ fun main() = application {
         )
     }
     val settingsViewModel = remember { SettingsViewModel() }
+
+    // Load persisted settings on startup
+    kotlinx.coroutines.runBlocking {
+        val store = SettingsStore(
+            readText = { path -> File(path).takeIf { it.exists() }?.readText() },
+            writeText = { path, content -> File(path).writeText(content) },
+        )
+        val settings = store.loadAppSettings(settingsPath)
+        settingsViewModel.setTheme(settings.theme)
+        settingsViewModel.setTheGamesDbApiKey(settings.theGamesDbApiKey)
+    }
 
     // ---- First-run auto-setup: download missing cores + emulators ----
     var setupNeeded by remember { mutableStateOf(false) }
@@ -400,5 +412,6 @@ private fun pickRomFile(): String? {
 }
 
 private fun exitApplication() {
+    // Settings saved via the onCloseRequest handler in main()
     kotlin.system.exitProcess(0)
 }

@@ -128,6 +128,11 @@ fun PlayerScreen(
                     showOptionsDialog = true
                     return@onKeyEvent true
                 }
+                // Run-ahead toggle: press R
+                if (event.type == KeyEventType.KeyUp && keyCode == java.awt.event.KeyEvent.VK_R) {
+                    engine.toggleRunAhead()
+                    return@onKeyEvent true
+                }
                 // Video scaling: press S to cycle modes
                 if (event.type == KeyEventType.KeyUp && keyCode == java.awt.event.KeyEvent.VK_S) {
                     scaleMode = (scaleMode + 1) % 3

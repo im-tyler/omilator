@@ -14,6 +14,7 @@ data class AppSettings(
     val preferAccuracyOverSpeed: Boolean = false,
     val audioLatencyMillis: Int = 50,
     val vsyncEnabled: Boolean = true,
+    val theGamesDbApiKey: String = "",
 ) {
     companion object {
         val DEFAULT = AppSettings()

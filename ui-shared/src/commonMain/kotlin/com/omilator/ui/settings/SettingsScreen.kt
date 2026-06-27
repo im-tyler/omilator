@@ -47,6 +47,7 @@ data class SettingsUiState(
     val emulatorsTotal: Int = 3,
     val emulatorsDownloading: Boolean = false,
     val emulatorsStatus: String = "",
+    val theGamesDbApiKey: String = "",
 )
 
 class SettingsViewModel {
@@ -85,6 +86,10 @@ class SettingsViewModel {
 
     fun setEmulatorsDownloading(downloading: Boolean, status: String = "") {
         _state.value = _state.value.copy(emulatorsDownloading = downloading, emulatorsStatus = status)
+    }
+
+    fun setTheGamesDbApiKey(key: String) {
+        _state.value = _state.value.copy(theGamesDbApiKey = key)
     }
 }
 
@@ -232,6 +237,25 @@ fun SettingsScreen(
                     ) {
                         Text(if (state.emulatorsDownloading) "Downloading..." else "Download missing emulators")
                     }
+                }
+            }
+        }
+
+        item {
+            SettingsCard(title = "Cover art") {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        "TheGamesDB API key (optional — enables Pokemon/Nintendo covers)",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    androidx.compose.material3.OutlinedTextField(
+                        value = state.theGamesDbApiKey,
+                        onValueChange = { viewModel.setTheGamesDbApiKey(it) },
+                        placeholder = { Text("Free key from thegamesdb.net") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
         }

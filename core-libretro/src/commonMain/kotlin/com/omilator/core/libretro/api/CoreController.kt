@@ -33,6 +33,7 @@ interface CoreController {
     /** Core-specific options (resolution, accuracy, region, etc.). */
     fun getCoreOptions(): List<CoreOption> = emptyList()
     fun setOptionValue(key: String, value: String) {}
+    fun getOptionSelections(): Map<String, String> = emptyMap()
 }
 
 class CoreNotLoadedException(message: String) : RuntimeException(message)

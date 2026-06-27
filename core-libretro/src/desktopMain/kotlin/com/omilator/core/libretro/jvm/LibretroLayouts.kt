@@ -69,6 +69,8 @@ internal object RetroEnv {
     const val GET_CAMERA_DRIVER = 38
     const val GET_TARGET_REFRESH_RATE = 59
     const val SET_SUPPORT_ACHIEVEMENTS = 38 // alias — both used as 38 by different cores
+    const val SET_DISK_CONTROL_INTERFACE = 55
+    const val SET_DISK_CONTROL_EXT2_INTERFACE = 57
 }
 
 internal object PixelFormatC {

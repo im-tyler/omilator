@@ -40,6 +40,9 @@ internal class LibretroFfm(
     /** User-selected values for each option (key -> chosen value). */
     var optionSelections: MutableMap<String, String> = mutableMapOf()
 
+    /** Button descriptions from SET_INPUT_DESCRIPTORS (human-readable names). */
+    val inputDescriptors: MutableMap<String, String> = mutableMapOf()
+
     private var apiVersion: MethodHandle? = null
     private var getSystemInfo: MethodHandle? = null
     private var getSystemAvInfo: MethodHandle? = null
@@ -283,6 +286,12 @@ internal class LibretroFfm(
             RetroEnv.SET_HW_RENDER -> hwRender.handleRequest(data)
 
             // ---- Core options ----
+            RetroEnv.SET_INPUT_DESCRIPTORS -> {
+                // cmd 11: parse retro_input_descriptor array for button names
+                parseInputDescriptors(data)
+                true
+            }
+            RetroEnv.SET_DISK_CONTROL_INTERFACE -> true // accept but don't parse (niche)
             RetroEnv.SET_CORE_OPTIONS -> {
                 // cmd 53: data = retro_core_option_definition*
                 parseCoreOptions(data)
@@ -473,6 +482,32 @@ internal class LibretroFfm(
 
     fun setOptionValue(key: String, value: String) {
         optionSelections[key] = value
+    }
+
+    private fun parseInputDescriptors(data: MemorySegment) {
+        inputDescriptors.clear()
+        if (data.address() == 0L) return
+        // retro_input_descriptor { port(u32), device(u32), index(u32), id(u32), desc(char*) }
+        // Struct size: 4+4+4+4+8 = 24 bytes (with padding to 8-byte alignment for the ptr)
+        // Actually: 4*4=16 bytes for ints, then padding to 8-byte boundary for pointer
+        // Layout: port(4) device(4) index(4) id(4) desc(8) = 24 bytes
+        val structSize = 24L
+        var offset = 0L
+        while (true) {
+            val port = data.get(ValueLayout.JAVA_INT, offset)
+            if (port == 0xFFFFFFFF.toInt()) break // terminator
+            val device = data.get(ValueLayout.JAVA_INT, offset + 4)
+            val id = data.get(ValueLayout.JAVA_INT, offset + 12)
+            val descSeg = data.get(ValueLayout.ADDRESS, offset + 16)
+            val desc = if (descSeg.address() != 0L) descSeg.reinterpret(128L).getUtf8String(0) else ""
+            if (port == 0 && device == 1 && desc.isNotBlank()) {
+                inputDescriptors["btn_$id"] = desc
+            }
+            offset += structSize
+        }
+        if (inputDescriptors.isNotEmpty()) {
+            println("[Omilator] Parsed ${inputDescriptors.size} input descriptors")
+        }
     }
 
     private fun SymbolLookup.down(name: String, fd: FunctionDescriptor): MethodHandle {

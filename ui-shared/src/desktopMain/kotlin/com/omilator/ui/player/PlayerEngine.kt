@@ -57,11 +57,38 @@ class PlayerEngine(
             )
             audioOutput.configure(avInfo.timing.sampleRate, channels = 2)
             gamepadPoller.init()
+            loadPersistedOptions()  // Apply saved core options for this ROM
             _state.value = _state.value.copy(isLoading = false, geometry = avInfo.geometry, fps = avInfo.timing.fps)
             frameLoop = scope.launch { runLoop(avInfo.timing.fps) }
         } catch (t: Throwable) {
             _state.value = _state.value.copy(isLoading = false, error = "${t::class.simpleName}: ${t.message}")
         }
+    }
+
+    private fun loadPersistedOptions() {
+        val file = optionsFile()
+        if (!file.exists()) return
+        try {
+            file.readLines().forEach { line ->
+                val parts = line.split("=", limit = 2)
+                if (parts.size == 2) controller.setOptionValue(parts[0], parts[1])
+            }
+        } catch (_: Throwable) {}
+    }
+
+    private fun persistOptions() {
+        try {
+            val selections = controller.getOptionSelections()
+            if (selections.isEmpty()) return
+            val text = selections.entries.joinToString("\n") { "${it.key}=${it.value}" }
+            optionsFile().writeText(text)
+        } catch (_: Throwable) {}
+    }
+
+    private fun optionsFile(): java.io.File {
+        val dir = java.io.File(System.getProperty("user.home"),
+            "Library/Application Support/Omilator/options").apply { mkdirs() }
+        return java.io.File(dir, "${java.io.File(romPath).nameWithoutExtension}.json")
     }
 
     fun stop() {
@@ -114,11 +141,21 @@ class PlayerEngine(
                 setButton = { btn, pressed ->
                     if (pressed) inputState.press(btn) else inputState.release(btn)
                 },
-                setAnalog = { _, _ -> },  // analog support wired but not yet used by cores
+                setAnalog = { _, _ -> },
             )
 
             controller.runFrame()
             tickRewind()
+
+            // Run-ahead: speculative extra frame for reduced input latency.
+            // Display shows 1 frame ahead; state rolls back to real frame.
+            if (runAhead > 0) {
+                try {
+                    val savedState = controller.saveStateToMemory()
+                    controller.runFrame()
+                    controller.loadStateFromMemory(savedState)
+                } catch (_: Throwable) {}
+            }
 
             // Adjust deadline by speed multiplier (fast forward / slow motion)
             val interval = (baseIntervalNanos / speedMultiplier).toLong()
@@ -165,7 +202,15 @@ class PlayerEngine(
 
     // ---- Core options ----
     fun getCoreOptions() = controller.getCoreOptions()
-    fun setOptionValue(key: String, value: String) = controller.setOptionValue(key, value)
+    fun setOptionValue(key: String, value: String) {
+        controller.setOptionValue(key, value)
+        persistOptions()
+    }
+
+    // ---- Run-ahead (latency reduction) ----
+    private var runAhead = 0
+    fun toggleRunAhead() { runAhead = if (runAhead > 0) 0 else 1 }
+    fun isRunAhead(): Boolean = runAhead > 0
 
     // ---- Audio volume ----
     private var volume: Float = 1.0f

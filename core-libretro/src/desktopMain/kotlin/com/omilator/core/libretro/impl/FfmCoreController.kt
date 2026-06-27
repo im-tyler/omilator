@@ -155,6 +155,7 @@ internal class FfmCoreController(
     override fun loadStateFromMemory(bytes: ByteArray): Boolean = native?.callUnserialize(bytes) ?: false
     override fun getCoreOptions() = native?.coreOptions?.toList() ?: emptyList()
     override fun setOptionValue(key: String, value: String) { native?.setOptionValue(key, value) }
+    override fun getOptionSelections() = native?.optionSelections?.toMap() ?: emptyMap()
 
     private fun dispatchVideo(data: MemorySegment, width: Int, height: Int, pitch: Long) {
         val format = when (native?.pixelFormat ?: PixelFormatC.XRGB8888) {
