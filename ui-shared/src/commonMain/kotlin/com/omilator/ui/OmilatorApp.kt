@@ -15,6 +15,7 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,13 +44,22 @@ fun OmilatorApp(
     onLaunchStandalone: () -> Unit = {},
     onDownloadCores: () -> Unit = {},
     onOpenGameSettings: (String) -> Unit = {},
+    onDownloadEmulators: () -> Unit = {},
 ) {
     val windowClass = currentWindowSizeClass()
     var destination by rememberSaveable { mutableStateOf(OmilatorDestination.LIBRARY) }
 
     val isExpanded = windowClass == WindowSizeClass.EXPANDED
 
-    OmilatorTheme {
+    // Apply theme from settings
+    val settingsState by settingsViewModel.state.collectAsState()
+    val forceDark = when (settingsState.theme) {
+        com.omilator.data.settings.AppTheme.SYSTEM -> null
+        com.omilator.data.settings.AppTheme.LIGHT -> false
+        com.omilator.data.settings.AppTheme.DARK -> true
+    }
+
+    OmilatorTheme(forceDark = forceDark) {
         if (isExpanded) {
             Row(modifier = Modifier.fillMaxSize()) {
                 NavigationRail {
@@ -79,6 +89,7 @@ fun OmilatorApp(
                         viewModel = settingsViewModel,
                         onAddDirectory = onAddRomDirectory,
                         onDownloadCores = onDownloadCores,
+                            onDownloadEmulators = onDownloadEmulators,
                     )
                 }
             }
@@ -115,6 +126,7 @@ fun OmilatorApp(
                             viewModel = settingsViewModel,
                             onAddDirectory = onAddRomDirectory,
                             onDownloadCores = onDownloadCores,
+                            onDownloadEmulators = onDownloadEmulators,
                         )
                     }
                 }

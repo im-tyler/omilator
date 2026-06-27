@@ -21,6 +21,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import com.omilator.data.launcher.EmulatorInstaller
 import com.omilator.data.launcher.StandaloneRegistry
 import com.omilator.data.library.CoreDownloader
 import com.omilator.data.library.JvmLibraryScanner
@@ -128,6 +129,22 @@ fun main() = application {
                 },
                 onOpenGameSettings = { romPath ->
                     openGameSettings(romPath)
+                },
+                onDownloadEmulators = {
+                    kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        val installer = EmulatorInstaller()
+                        settingsViewModel.setEmulatorsStatus(installer.installedCount(), installer.emulators.size)
+                        settingsViewModel.setEmulatorsDownloading(true, "Starting...")
+                        for (spec in installer.emulators) {
+                            if (!installer.isInstalled(spec)) {
+                                installer.install(spec) { status ->
+                                    settingsViewModel.setEmulatorsDownloading(true, status)
+                                }
+                            }
+                        }
+                        settingsViewModel.setEmulatorsStatus(installer.installedCount(), installer.emulators.size)
+                        settingsViewModel.setEmulatorsDownloading(false, "Done: ${installer.installedCount()}/${installer.emulators.size} emulators installed")
+                    }
                 },
             )
         }

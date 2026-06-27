@@ -43,6 +43,10 @@ data class SettingsUiState(
     val coresTotal: Int = 14,
     val coresDownloading: Boolean = false,
     val coresStatus: String = "",
+    val emulatorsInstalled: Int = 0,
+    val emulatorsTotal: Int = 3,
+    val emulatorsDownloading: Boolean = false,
+    val emulatorsStatus: String = "",
 )
 
 class SettingsViewModel {
@@ -74,6 +78,14 @@ class SettingsViewModel {
     fun setCoresDownloading(downloading: Boolean, status: String = "") {
         _state.value = _state.value.copy(coresDownloading = downloading, coresStatus = status)
     }
+
+    fun setEmulatorsStatus(installed: Int, total: Int) {
+        _state.value = _state.value.copy(emulatorsInstalled = installed, emulatorsTotal = total)
+    }
+
+    fun setEmulatorsDownloading(downloading: Boolean, status: String = "") {
+        _state.value = _state.value.copy(emulatorsDownloading = downloading, emulatorsStatus = status)
+    }
 }
 
 @Composable
@@ -81,6 +93,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel,
     onAddDirectory: () -> Unit,
     onDownloadCores: () -> Unit = {},
+    onDownloadEmulators: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -193,6 +206,31 @@ fun SettingsScreen(
                             }
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         }
+                    }
+                }
+            }
+        }
+
+        item {
+            SettingsCard(title = "Standalone emulators") {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "${state.emulatorsInstalled} of ${state.emulatorsTotal} installed (PPSSPP, xemu, RPCS3)",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    if (state.emulatorsStatus.isNotEmpty()) {
+                        Text(
+                            state.emulatorsStatus,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    TextButton(
+                        onClick = onDownloadEmulators,
+                        enabled = !state.emulatorsDownloading,
+                    ) {
+                        Text(if (state.emulatorsDownloading) "Downloading..." else "Download missing emulators")
                     }
                 }
             }
