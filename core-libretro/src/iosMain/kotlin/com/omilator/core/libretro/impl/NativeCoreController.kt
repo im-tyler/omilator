@@ -121,14 +121,22 @@ internal class NativeCoreController : CoreController {
     override suspend fun loadGame(romPath: String): AvInfo {
         check(loaded) { throw CoreNotLoadedException("Core not loaded") }
 
-        // Allocate retro_game_info on nativeHeap so it persists for the
-        // core's lifetime (retro_run accesses it).
+        // Allocate retro_game_info on nativeHeap, ZERO-INITIALIZED.
+        // struct retro_game_info { char* path; void* data; size_t size; char* meta; } = 32 bytes
+        // If data/size are garbage, core tries to read ROM from memory instead of file.
         val info = nativeHeap.allocArray<ByteVar>(32)
-        // Copy the path string to nativeHeap for stability
+        // Zero all 32 bytes
+        val zeroBytes = ByteArray(32)
+        zeroBytes.copyInto(info.readBytes(32))
+
+        // Set path string (stable on nativeHeap)
         val pathBytes = romPath.encodeToByteArray() + 0.toByte()
         val pathBuf = nativeHeap.allocArray<ByteVar>(pathBytes.size)
         pathBytes.copyInto(pathBuf.readBytes(pathBytes.size))
         info.reinterpret<CPointerVar<ByteVar>>()[0] = pathBuf
+        // data (offset 8) = NULL (already zeroed)
+        // size (offset 16) = 0 (already zeroed)
+        // meta (offset 24) = NULL (already zeroed)
 
         val ok = dlsym(handle, "retro_load_game")
             ?.reinterpret<CFunction<(CPointer<ByteVar>?) -> Boolean>>()
