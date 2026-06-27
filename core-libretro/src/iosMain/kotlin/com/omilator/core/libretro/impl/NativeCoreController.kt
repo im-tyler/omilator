@@ -45,8 +45,17 @@ internal val videoCb = staticCFunction { data: CPointer<ByteVar>?, width: Int, h
     }
 }
 
-// Audio batch callback omitted — single-sample callback handles all audio
-internal val audioBatchCb: COpaquePointer? = null
+internal val audioBatchCb = staticCFunction { data: CPointer<ByteVar>?, frames: Int ->
+    val ctrl = nativeControllerInstance
+    if (ctrl != null && data != null && frames > 0) {
+        // Interpret data as int16_t* (stereo samples)
+        val shortPtr = data.reinterpret<ShortVar>()
+        val count = frames * 2
+        val samples = ShortArray(count) { i -> shortPtr[i] }
+        ctrl.audioSink?.onSamples(samples)
+    }
+    frames
+}
 
 internal val audioSampleCb = staticCFunction { left: Int, right: Int ->
     nativeControllerInstance?.audioSink?.onSamples(shortArrayOf(left.toShort(), right.toShort()))
@@ -88,18 +97,20 @@ internal class NativeCoreController : CoreController {
         val videoPtr: COpaquePointer? = videoCb
         val audioBatchPtr: COpaquePointer? = audioBatchCb
         val audioSamplePtr: COpaquePointer? = audioSampleCb
-        val inputPollPtr: COpaquePointer? = inputPollCb
+        // inputPoll is optional — core polls on-demand via inputState
         val inputStatePtr: COpaquePointer? = inputStateCb
 
+        // Order matters: environment BEFORE init, others AFTER init
         dlsym(h, "retro_set_environment")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(envPtr)
-        dlsym(h, "retro_set_video_refresh")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(videoPtr)
-        dlsym(h, "retro_set_audio_sample_batch")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(audioBatchPtr)
-        dlsym(h, "retro_set_audio_sample")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(audioSamplePtr)
-        dlsym(h, "retro_set_input_poll")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(inputPollPtr)
-        dlsym(h, "retro_set_input_state")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(inputStatePtr)
 
         // retro_init
         dlsym(h, "retro_init")?.reinterpret<CFunction<() -> Unit>>()?.invoke()
+
+        // Set remaining callbacks AFTER init
+        dlsym(h, "retro_set_video_refresh")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(videoPtr)
+        dlsym(h, "retro_set_audio_sample_batch")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(audioBatchPtr)
+        dlsym(h, "retro_set_audio_sample")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(audioSamplePtr)
+        dlsym(h, "retro_set_input_state")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(inputStatePtr)
 
         // retro_get_system_info
         var name = "unknown"
