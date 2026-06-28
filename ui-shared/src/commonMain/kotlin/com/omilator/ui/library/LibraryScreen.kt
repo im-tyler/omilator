@@ -66,6 +66,7 @@ fun LibraryScreen(
     showStandalone: Boolean = true,
     cardMinSize: Int = 180,
     onSettings: () -> Unit = {},
+    showTitle: Boolean = true,
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -74,11 +75,13 @@ fun LibraryScreen(
             // Header bar — large title + actions
             TopAppBar(
                 title = {
-                    Text(
-                        "Library",
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                    if (showTitle) {
+                        Text(
+                            "Library",
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
                 },
                 actions = {
                     if (onSettings != {}) {

@@ -73,6 +73,7 @@ fun OmilatorApp(
                     showStandalone = isDesktop,
                     cardMinSize = 130,
                     onSettings = { destination = OmilatorDestination.SETTINGS },
+                    showTitle = false,
                 )
             } else {
                 SettingsScreen(

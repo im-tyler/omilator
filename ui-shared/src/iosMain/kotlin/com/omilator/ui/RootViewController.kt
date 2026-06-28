@@ -14,20 +14,27 @@ import com.omilator.ui.library.LibraryViewModel
 import com.omilator.ui.settings.SettingsViewModel
 import platform.UIKit.UIViewController
 import platform.Foundation.NSHomeDirectory
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 fun RootViewController(): UIViewController {
     lateinit var vc: UIViewController
+
+    // Hoist ViewModels OUTSIDE the composable so they survive player ↔ library switches
+    val libraryViewModel = LibraryViewModel(
+        repository = LibraryRepository(IosLibraryScanner()),
+        settingsStore = null,
+        settingsPath = "",
+    )
+    val settingsViewModel = SettingsViewModel()
+
+    // Trigger initial scan
+    CoroutineScope(Dispatchers.Default).launch {
+        libraryViewModel.rescan(listOf("Documents"))
+    }
+
     vc = ComposeUIViewController {
-        val libraryViewModel = LibraryViewModel(
-            repository = LibraryRepository(IosLibraryScanner()),
-            settingsStore = null,
-            settingsPath = "",
-        )
-
-        androidx.compose.runtime.LaunchedEffect(Unit) {
-            libraryViewModel.rescan(listOf("Documents"))
-        }
-
         var playingRom by remember { mutableStateOf<String?>(null) }
         var playingCore by remember { mutableStateOf<String?>(null) }
 
@@ -42,14 +49,13 @@ fun RootViewController(): UIViewController {
         } else {
             OmilatorApp(
                 libraryViewModel = libraryViewModel,
-                settingsViewModel = SettingsViewModel(),
+                settingsViewModel = settingsViewModel,
                 onAddRomDirectory = {
                     pickDirectory(vc) { path ->
                         if (path != null) println("[Omilator] Picked directory: $path")
                     }
                 },
                 onPlayRom = { path ->
-                    // Resolve core from ROM extension
                     val ext = path.substringAfterLast('.', "")
                     val coreName = when (ext.lowercase()) {
                         "gba", "gb", "gbc", "sgb" -> "mgba_libretro"
@@ -57,37 +63,28 @@ fun RootViewController(): UIViewController {
                         "sfc", "smc" -> "snes9x_libretro"
                         else -> "mgba_libretro"
                     }
-                    // Try multiple core locations
                     val home = NSHomeDirectory()
-                    val candidates = listOf(
-                        "$home/Documents/cores/$coreName.dylib",
-                        "$home/Documents/$coreName.dylib",
-                    )
-                    val found = candidates.firstOrNull { exists(it) }
+                    val found = listOfNotNull(
+                        if (exists("$home/Documents/cores/$coreName.dylib")) "$home/Documents/cores/$coreName.dylib" else null,
+                    ).firstOrNull()
                     if (found != null) {
                         playingCore = found
                         playingRom = path
-                    } else {
-                        println("[Omilator] Core not found: $coreName (looked in Documents/cores/)")
                     }
                 },
                 onQuickPlay = {
                     pickFile(vc) { path ->
                         if (path != null) {
-                            // Trigger same play logic
                             val ext = path.substringAfterLast('.', "")
                             val coreName = when (ext.lowercase()) {
                                 "gba", "gb", "gbc", "sgb" -> "mgba_libretro"
                                 "nes", "nez" -> "mesen_libretro"
-                                "sfc", "smc" -> "snes9x_libretro"
                                 else -> "mgba_libretro"
                             }
                             val home = NSHomeDirectory()
-                            val candidates = listOf(
-                                "$home/Documents/cores/$coreName.dylib",
-                                "$home/Documents/$coreName.dylib",
-                            )
-                            val found = candidates.firstOrNull { exists(it) }
+                            val found = listOfNotNull(
+                                if (exists("$home/Documents/cores/$coreName.dylib")) "$home/Documents/cores/$coreName.dylib" else null,
+                            ).firstOrNull()
                             if (found != null) {
                                 playingCore = found
                                 playingRom = path
@@ -96,7 +93,7 @@ fun RootViewController(): UIViewController {
                     }
                 },
                 isDesktop = false,
-            singleScreen = true,
+                singleScreen = true,
             )
         }
     }
