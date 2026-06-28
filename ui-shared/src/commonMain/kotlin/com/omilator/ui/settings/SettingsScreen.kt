@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -114,11 +116,10 @@ fun SettingsScreen(
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (onBack != {}) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
-                    }
+                TextButton(onClick = onBack) {
+                    Text("< Back", color = MaterialTheme.colorScheme.primary)
                 }
+                Spacer(Modifier.width(8.dp))
                 Text(
                     "Settings",
                     style = MaterialTheme.typography.headlineLarge,
