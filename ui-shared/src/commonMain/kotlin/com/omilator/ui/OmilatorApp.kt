@@ -46,13 +46,13 @@ fun OmilatorApp(
     onOpenGameSettings: (String) -> Unit = {},
     onDownloadEmulators: () -> Unit = {},
     isDesktop: Boolean = false,
+    singleScreen: Boolean = false,
 ) {
     val windowClass = currentWindowSizeClass()
     var destination by rememberSaveable { mutableStateOf(OmilatorDestination.LIBRARY) }
 
     val isExpanded = windowClass == WindowSizeClass.EXPANDED
 
-    // Apply theme from settings
     val settingsState by settingsViewModel.state.collectAsState()
     val forceDark = when (settingsState.theme) {
         com.omilator.data.settings.AppTheme.SYSTEM -> null
@@ -61,7 +61,30 @@ fun OmilatorApp(
     }
 
     OmilatorTheme(forceDark = forceDark) {
-        if (isExpanded) {
+        if (singleScreen) {
+            if (destination == OmilatorDestination.LIBRARY) {
+                LibraryScreen(
+                    viewModel = libraryViewModel,
+                    onAddDirectory = onAddRomDirectory,
+                    onOpenGame = onPlayRom,
+                    onQuickPlay = onQuickPlay,
+                    onLaunchStandalone = onLaunchStandalone,
+                    onOpenGameSettings = onOpenGameSettings,
+                    showStandalone = isDesktop,
+                    cardMinSize = 130,
+                    onSettings = { destination = OmilatorDestination.SETTINGS },
+                )
+            } else {
+                SettingsScreen(
+                    viewModel = settingsViewModel,
+                    onAddDirectory = onAddRomDirectory,
+                    onDownloadCores = onDownloadCores,
+                    onDownloadEmulators = onDownloadEmulators,
+                    isDesktop = isDesktop,
+                    onBack = { destination = OmilatorDestination.LIBRARY },
+                )
+            }
+        } else if (isExpanded) {
             Row(modifier = Modifier.fillMaxSize()) {
                 NavigationRail {
                     NavigationRailItem(

@@ -93,6 +93,7 @@ fun RootViewController(): UIViewController {
                     }
                 },
                 isDesktop = false,
+            singleScreen = true,
             )
         }
     }

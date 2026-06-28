@@ -7,13 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		8920AE423D40E31E5281A1D3 /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_2E1B8F3B-5A94-44A5-B3C4-37A853F5B27F" /* iOSApp.swift */; };
+		8C45C44864317C2CB4B3229E /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_4D489EBB-0222-46F2-81FD-FD66710DD4EF" /* iOSApp.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		0103209F18157D58720404FA /* Omilator.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Omilator.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		"TEMP_2E1B8F3B-5A94-44A5-B3C4-37A853F5B27F" /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
-		"TEMP_306071C4-3DBC-41DD-B8CD-E60079DF4F16" /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		"TEMP_4D489EBB-0222-46F2-81FD-FD66710DD4EF" /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
+		"TEMP_B8447AF2-4665-4C1E-AFCE-52F0EC03D033" /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -32,11 +32,11 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		"TEMP_E4833211-D4AE-4189-AD14-5978EFAB2D42" /* . */ = {
+		"TEMP_DFC06C89-A86A-4265-8E52-70F7956B0976" /* . */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_2E1B8F3B-5A94-44A5-B3C4-37A853F5B27F" /* iOSApp.swift */,
-				"TEMP_306071C4-3DBC-41DD-B8CD-E60079DF4F16" /* Info.plist */,
+				"TEMP_4D489EBB-0222-46F2-81FD-FD66710DD4EF" /* iOSApp.swift */,
+				"TEMP_B8447AF2-4665-4C1E-AFCE-52F0EC03D033" /* Info.plist */,
 			);
 			name = .;
 			path = .;
@@ -97,7 +97,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8920AE423D40E31E5281A1D3 /* iOSApp.swift in Sources */,
+				8C45C44864317C2CB4B3229E /* iOSApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

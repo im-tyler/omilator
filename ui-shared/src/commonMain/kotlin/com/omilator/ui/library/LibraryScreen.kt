@@ -23,6 +23,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -63,6 +64,8 @@ fun LibraryScreen(
     onLaunchStandalone: () -> Unit = {},
     onOpenGameSettings: (String) -> Unit = {},
     showStandalone: Boolean = true,
+    cardMinSize: Int = 180,
+    onSettings: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -78,6 +81,11 @@ fun LibraryScreen(
                     )
                 },
                 actions = {
+                    if (onSettings != {}) {
+                        IconButton(onClick = onSettings) {
+                            Icon(Icons.Rounded.Settings, contentDescription = "Settings")
+                        }
+                    }
                     if (showStandalone) {
                         TextButton(onClick = onLaunchStandalone) { Text("Standalone") }
                     }
@@ -127,7 +135,7 @@ fun LibraryScreen(
                 state.isLoading -> LoadingState()
                 state.games.isEmpty() -> EmptyState(onAddDirectory, onQuickPlay)
                 state.visibleGames.isEmpty() -> NoMatchesState()
-                else -> GridState(state.visibleGames, onOpenGame, onOpenGameSettings)
+                else -> GridState(state.visibleGames, onOpenGame, onOpenGameSettings, cardMinSize)
             }
         }
     }
@@ -304,12 +312,13 @@ private fun GridState(
     games: List<Game>,
     onOpenGame: (String) -> Unit,
     onOpenGameSettings: (String) -> Unit = {},
+    cardMinSize: Int = 180,
 ) {
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = 180.dp),
+        columns = GridCells.Adaptive(minSize = cardMinSize.dp),
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 32.dp),
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         items(games, key = { it.id }) { game ->

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.Card
@@ -100,6 +101,7 @@ fun SettingsScreen(
     onDownloadCores: () -> Unit = {},
     onDownloadEmulators: () -> Unit = {},
     isDesktop: Boolean = false,
+    onBack: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -111,13 +113,19 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            Text(
-                "Settings",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(vertical = 8.dp),
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (onBack != {}) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
+                    }
+                }
+                Text(
+                    "Settings",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+            }
         }
 
         item {
