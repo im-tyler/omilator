@@ -225,113 +225,83 @@ private fun DrawScope.drawController3D(w: Float, h: Float) {
 }
 
 private fun DrawScope.drawDpad3D(cx: Float, cy: Float, s: Float) {
-    val dark = Color(0xFF2A2A35)
-    val mid = Color(0xFF3A3A48)
-    val light = Color(0xFF4A4A5C)
-    val highlight = Color(0xFF5A5A70)
+    val dark = Color(0xFF2A2A32)
+    val mid = Color(0xFF353540)
+    val edge = Color(0xFF1E1E26)
     val armW = s * 1.4f
     val armH = s * 0.9f
     val cr = 8f
 
-    // Shadow (offset down-right)
-    for (arm in listOf(
-        Triple(cx - armH / 2, cy - armW - s * 0.1f, false), // up
-        Triple(cx - armH / 2, cy + s * 0.1f, false),         // down
-        Triple(cx - armW - s * 0.1f, cy - armH / 2, true),   // left
-        Triple(cx + s * 0.1f, cy - armH / 2, true),          // right
-    )) {
-        val (x, y, horizontal) = arm
-        val shadowOffset = 3f
-        drawRoundRect(
-            Color.Black.copy(alpha = 0.35f),
-            Offset(x + shadowOffset, y + shadowOffset),
-            Size(if (horizontal) armW else armH, if (horizontal) armH else armW),
-            androidx.compose.ui.geometry.CornerRadius(cr, cr),
-        )
-    }
-
-    // Base arms with gradient
-    for (arm in listOf(
+    val arms = listOf(
         Triple(cx - armH / 2, cy - armW - s * 0.1f, false),
         Triple(cx - armH / 2, cy + s * 0.1f, false),
         Triple(cx - armW - s * 0.1f, cy - armH / 2, true),
         Triple(cx + s * 0.1f, cy - armH / 2, true),
-    )) {
-        val (x, y, horizontal) = arm
-        val armWidth = if (horizontal) armW else armH
-        val armHeight = if (horizontal) armH else armW
+    )
 
-        // Base
+    // Drop shadow
+    for ((x, y, horizontal) in arms) {
+        val aw = if (horizontal) armW else armH
+        val ah = if (horizontal) armH else armW
         drawRoundRect(
-            brush = Brush.verticalGradient(
-                colors = listOf(light, mid, dark),
-                startY = y,
-                endY = y + armHeight,
-            ),
-            topLeft = Offset(x, y),
-            size = Size(armWidth, armHeight),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr, cr),
+            Color.Black.copy(alpha = 0.30f),
+            Offset(x + 2f, y + 3f),
+            Size(aw, ah),
+            androidx.compose.ui.geometry.CornerRadius(cr, cr),
         )
+    }
 
-        // Top highlight strip
+    // Uniform gradient arms (darker at edges, lighter at center - equal all around)
+    for ((x, y, horizontal) in arms) {
+        val aw = if (horizontal) armW else armH
+        val ah = if (horizontal) armH else armW
         drawRoundRect(
-            brush = Brush.verticalGradient(
-                colors = listOf(highlight.copy(alpha = 0.6f), Color.Transparent),
-                startY = y,
-                endY = y + armHeight * 0.3f,
+            brush = Brush.radialGradient(
+                colors = listOf(mid, dark, edge),
+                center = Offset(x + aw / 2, y + ah / 2),
+                radius = maxOf(aw, ah) * 0.7f,
             ),
             topLeft = Offset(x, y),
-            size = Size(armWidth, armHeight * 0.3f),
+            size = Size(aw, ah),
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr, cr),
         )
     }
 
     // Center hub
-    drawCircle(dark, armH * 0.55f, Offset(cx, cy))
+    drawCircle(edge, armH * 0.6f, Offset(cx, cy))
     drawCircle(
         Brush.radialGradient(
-            colors = listOf(highlight.copy(alpha = 0.5f), Color.Transparent),
-            center = Offset(cx - 2f, cy - 2f),
-            radius = armH * 0.4f,
+            colors = listOf(mid, dark, edge),
+            center = Offset(cx, cy),
+            radius = armH * 0.5f,
         ),
-        armH * 0.4f,
-        Offset(cx - 2f, cy - 2f),
+        armH * 0.5f,
+        Offset(cx, cy),
     )
 }
 
 private fun DrawScope.drawButton3D(cx: Float, cy: Float, r: Float, baseColor: Color, lightColor: Color) {
     // Drop shadow
-    drawCircle(Color.Black.copy(alpha = 0.3f), r, Offset(cx + 2f, cy + 3f))
+    drawCircle(Color.Black.copy(alpha = 0.30f), r, Offset(cx + 2f, cy + 3f))
 
-    // Outer ring (darker rim)
-    drawCircle(baseColor.copy(alpha = 0.5f), r * 1.1f, Offset(cx, cy))
+    // Darker outer rim
+    drawCircle(baseColor.copy(alpha = 0.3f), r * 1.08f, Offset(cx, cy))
 
-    // Main body with radial gradient (dome effect)
+    // Uniform radial gradient — equally 3D, no directional light
     drawCircle(
         Brush.radialGradient(
-            colors = listOf(lightColor, baseColor, baseColor.copy(alpha = 0.7f)),
-            center = Offset(cx - r * 0.3f, cy - r * 0.3f),
-            radius = r * 1.2f,
+            colors = listOf(lightColor, baseColor, Color.Black.copy(alpha = 0.3f)),
+            center = Offset(cx, cy),
+            radius = r * 1.1f,
         ),
         r,
         Offset(cx, cy),
     )
 
-    // Specular highlight (top-left)
+    // Uniform inner shadow ring for depth (evenly darker at edges)
     drawCircle(
         Brush.radialGradient(
-            colors = listOf(Color.White.copy(alpha = 0.35f), Color.Transparent),
-            center = Offset(cx - r * 0.35f, cy - r * 0.35f),
-            radius = r * 0.5f,
-        ),
-        r * 0.5f,
-        Offset(cx - r * 0.35f, cy - r * 0.35f),
-    )
-
-    // Bottom inner shadow (gives depth)
-    drawCircle(
-        Brush.radialGradient(
-            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.15f)),
+            colors = listOf(Color.Transparent, Color.Transparent, Color.Black.copy(alpha = 0.20f)),
             center = Offset(cx, cy),
             radius = r,
         ),
@@ -341,33 +311,22 @@ private fun DrawScope.drawButton3D(cx: Float, cy: Float, r: Float, baseColor: Co
 }
 
 private fun DrawScope.drawPill3D(cx: Float, cy: Float, r: Float) {
-    val dark = Color(0xFF2A2A35)
-    val mid = Color(0xFF3D3D4A)
-    val light = Color(0xFF4D4D5E)
+    val dark = Color(0xFF2A2A32)
+    val mid = Color(0xFF3A3A46)
+    val edge = Color(0xFF1E1E26)
 
     // Shadow
-    drawCircle(Color.Black.copy(alpha = 0.3f), r, Offset(cx + 1f, cy + 2f))
+    drawCircle(Color.Black.copy(alpha = 0.30f), r, Offset(cx + 1f, cy + 2f))
 
-    // Body
+    // Uniform gradient
     drawCircle(
         Brush.radialGradient(
-            colors = listOf(light, mid, dark),
-            center = Offset(cx - r * 0.3f, cy - r * 0.3f),
+            colors = listOf(mid, dark, edge),
+            center = Offset(cx, cy),
             radius = r,
         ),
         r,
         Offset(cx, cy),
-    )
-
-    // Highlight
-    drawCircle(
-        Brush.radialGradient(
-            colors = listOf(Color.White.copy(alpha = 0.25f), Color.Transparent),
-            center = Offset(cx - r * 0.3f, cy - r * 0.3f),
-            radius = r * 0.5f,
-        ),
-        r * 0.5f,
-        Offset(cx - r * 0.3f, cy - r * 0.3f),
     )
 }
 
