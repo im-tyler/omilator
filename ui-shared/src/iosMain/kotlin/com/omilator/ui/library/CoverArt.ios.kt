@@ -26,10 +26,10 @@ actual fun rememberCoverArt(game: Game): ImageBitmap? {
 }
 
 private fun fetchCoverArt(game: Game): ImageBitmap? {
+    // 1. Try libretro-thumbnails (has non-Nintendo games)
     val repoName = repoNameFor(game.system) ?: return null
     val romFileName = game.filePath.substringAfterLast('/').substringBeforeLast('.')
-    
-    // Try multiple name variations (same logic as desktop CoverArtService)
+
     val variations = linkedSetOf(romFileName)
     variations.add(romFileName.replace(Regex("\\s*\\([^)]*\\)\\s*"), "").trim())
     variations.add(romFileName.substringBefore(" (").trim())
@@ -38,21 +38,62 @@ private fun fetchCoverArt(game: Game): ImageBitmap? {
         if (variation.isBlank()) continue
         val encoded = variation.encodeURLPath() + ".png"
         val url = "https://raw.githubusercontent.com/libretro-thumbnails/$repoName/master/Named_Boxarts/$encoded"
-        
-        val nsUrl = NSURL(string = url)
-        val data = NSData.dataWithContentsOfURL(nsUrl) ?: continue
-        if (data.length.toInt() < 1000) continue // too small = error page
-        
-        val bytes = data.bytes?.reinterpret<ByteVar>()?.readBytes(data.length.toInt()) ?: continue
-        
-        return try {
-            val skiaImage = org.jetbrains.skia.Image.makeFromEncoded(bytes)
-            skiaImage.toComposeImageBitmap()
-        } catch (_: Exception) {
-            null
-        }
+        val result = fetchImage(url)
+        if (result != null) return result
     }
+
+    // 2. Fallback: try ScreenScraper CDN (has ALL games including Nintendo)
+    val ssSystemId = screenScraperSystemId(game.system) ?: return null
+    val cleanName = game.title.replace(" ", "+").encodeURLPath()
+    // ScreenScraper image CDN: direct box art URL pattern
+    for (region in listOf("us", "wor", "jp", "eu")) {
+        val ssUrl = "https://screenscraper.fr/image.php?gameid=0&media=box-3D&region=$region&systemeid=$ssSystemId&gamename=$cleanName"
+        val result = fetchImage(ssUrl)
+        if (result != null) return result
+    }
+
+    // 3. Try generic cover art repos that include Nintendo
+    for (variation in variations) {
+        if (variation.isBlank()) continue
+        val encoded = variation.encodeURLPath()
+        val url = "https://raw.githubusercontent.com/libretro-thumbnails/$repoName/Recalbox/User/_data/boxart/$encoded.png"
+        val result = fetchImage(url)
+        if (result != null) return result
+    }
+
     return null
+}
+
+private fun fetchImage(urlString: String): ImageBitmap? {
+    return try {
+        val nsUrl = NSURL(string = urlString)
+        val data = NSData.dataWithContentsOfURL(nsUrl) ?: return null
+        if (data.length.toInt() < 1000) return null
+        val bytes = data.bytes?.reinterpret<ByteVar>()?.readBytes(data.length.toInt()) ?: return null
+        org.jetbrains.skia.Image.makeFromEncoded(bytes).toComposeImageBitmap()
+    } catch (_: Exception) {
+        null
+    }
+}
+
+private fun screenScraperSystemId(system: GameSystem): Int? = when (system) {
+    GameSystem.NES -> 3
+    GameSystem.SNES -> 4
+    GameSystem.GAME_BOY -> 9
+    GameSystem.GAME_BOY_COLOR -> 10
+    GameSystem.GAME_BOY_ADVANCE -> 12
+    GameSystem.GENESIS -> 1
+    GameSystem.NINTENDO_64 -> 14
+    GameSystem.PLAYSTATION -> 57
+    GameSystem.NINTENDO_DS -> 15
+    GameSystem.PSP -> 61
+    GameSystem.GAMECUBE -> 13
+    GameSystem.WII -> 16
+    GameSystem.NINTENDO_3DS -> 17
+    GameSystem.PLAYSTATION_2 -> 58
+    GameSystem.DREAMCAST -> 23
+    GameSystem.SATURN -> 32
+    else -> null
 }
 
 private fun String.encodeURLPath(): String {

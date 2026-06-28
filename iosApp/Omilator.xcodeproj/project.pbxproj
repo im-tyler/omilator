@@ -7,15 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		3F94AFB4DFD3DA804CEAAB3B /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_817D5609-E137-4AE1-8658-690F95DF0748" /* iOSApp.swift */; };
-		A5DFD973AE78AAC07288C31C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_E06502EB-D820-4DC7-B3A4-F6796AA8D317" /* Assets.xcassets */; };
+		729EF298ECC4066F2334DCDB /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_F04D0761-8675-4DFE-92ED-66EC66778338" /* iOSApp.swift */; };
+		C05CB04BBE623D03D8AF302B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_62C23511-7DDA-4928-8445-F59A9B906ABB" /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		0103209F18157D58720404FA /* Omilator.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Omilator.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		"TEMP_817D5609-E137-4AE1-8658-690F95DF0748" /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
-		"TEMP_E06502EB-D820-4DC7-B3A4-F6796AA8D317" /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		"TEMP_FAD7CFE3-C08F-4D82-996D-7F6DF3D9A37B" /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		"TEMP_62C23511-7DDA-4928-8445-F59A9B906ABB" /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		"TEMP_BAE56E5F-341E-4C24-9794-872FF7F94269" /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		"TEMP_F04D0761-8675-4DFE-92ED-66EC66778338" /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -34,12 +34,12 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		"TEMP_679908F8-1441-4BC3-B177-5C5F3CF3D475" /* . */ = {
+		"TEMP_414145A2-FC08-4C32-B9C9-0DCC658BCEB4" /* . */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_E06502EB-D820-4DC7-B3A4-F6796AA8D317" /* Assets.xcassets */,
-				"TEMP_817D5609-E137-4AE1-8658-690F95DF0748" /* iOSApp.swift */,
-				"TEMP_FAD7CFE3-C08F-4D82-996D-7F6DF3D9A37B" /* Info.plist */,
+				"TEMP_62C23511-7DDA-4928-8445-F59A9B906ABB" /* Assets.xcassets */,
+				"TEMP_F04D0761-8675-4DFE-92ED-66EC66778338" /* iOSApp.swift */,
+				"TEMP_BAE56E5F-341E-4C24-9794-872FF7F94269" /* Info.plist */,
 			);
 			name = .;
 			path = .;
@@ -101,7 +101,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A5DFD973AE78AAC07288C31C /* Assets.xcassets in Resources */,
+				C05CB04BBE623D03D8AF302B /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,7 +112,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3F94AFB4DFD3DA804CEAAB3B /* iOSApp.swift in Sources */,
+				729EF298ECC4066F2334DCDB /* iOSApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
