@@ -57,6 +57,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.omilator.data.library.Game
 import com.omilator.data.library.GameSystem
 import androidx.compose.material3.OutlinedTextField
@@ -135,9 +136,30 @@ fun LibraryScreen(
                         val pageGames = if (systemFilter != null) {
                             state.games.filter { it.system == systemFilter }
                         } else {
-                            state.games
+                            val q = state.searchQuery.trim().lowercase()
+                            if (q.isEmpty()) state.games
+                            else state.games.filter { it.title.lowercase().contains(q) }
                         }
-                        LazyVerticalGrid(
+
+                        Column {
+                            if (pageIndex == 0) {
+                                OutlinedTextField(
+                                    value = state.searchQuery,
+                                    onValueChange = { viewModel.setSearch(it) },
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                    placeholder = { Text("Search", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        focusedBorderColor = Color.Transparent,
+                                        unfocusedBorderColor = Color.Transparent,
+                                    ),
+                                    textStyle = MaterialTheme.typography.bodyLarge,
+                                )
+                            }
+                            LazyVerticalGrid(
                             columns = GridCells.Adaptive(minSize = cardMinSize.dp),
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 80.dp),
@@ -152,51 +174,47 @@ fun LibraryScreen(
                                 )
                             }
                         }
+                        }
                     }
 
-                    // Dot indicator
+                    // Dot indicator — ALL dots visible, label BELOW each
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp),
+                            .padding(vertical = 4.dp),
                         horizontalArrangement = Arrangement.Center,
                     ) {
                         pages.forEachIndexed { index, system ->
                             val label = if (system == null) "All" else system.shortLabel()
                             val isSelected = index == currentPage
-                            Box(
+                            Column(
                                 modifier = Modifier
-                                    .padding(horizontal = 6.dp, vertical = 4.dp)
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null,
                                     ) {
                                         scope.launch { pagerState.animateScrollToPage(index) }
-                                    },
-                            ) {
-                                androidx.compose.foundation.layout.Row(
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .padding(end = 4.dp)
-                                            .size(if (isSelected) 8.dp else 6.dp)
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(
-                                                if (isSelected) MaterialTheme.colorScheme.primary
-                                                else MaterialTheme.colorScheme.outlineVariant
-                                            )
-                                    )
-                                    if (isSelected) {
-                                        Text(
-                                            label,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontWeight = FontWeight.SemiBold,
-                                        )
                                     }
-                                }
+                                    .padding(horizontal = 4.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .clip(RoundedCornerShape(3.5.dp))
+                                        .background(
+                                            if (isSelected) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.outlineVariant
+                                        )
+                                )
+                                Text(
+                                    label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 9.sp,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
                             }
                         }
                     }

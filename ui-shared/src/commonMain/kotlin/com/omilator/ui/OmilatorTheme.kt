@@ -80,7 +80,7 @@ fun OmilatorTheme(
     forceDark: Boolean? = null,
     content: @Composable () -> Unit,
 ) {
-    val isDark = forceDark ?: false // Default to light (white) for iOS safe area match
+    val isDark = forceDark ?: true // Default to dark for uniform iOS edges
     MaterialTheme(
         colorScheme = if (isDark) DarkColors else LightColors,
         typography = OmilatorTypography,
