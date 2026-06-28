@@ -77,7 +77,7 @@ fun GameCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(0.72f)
+                .aspectRatio(0.70f)
                 .shadow(
                     elevation = elevation.dp,
                     shape = RoundedCornerShape(14.dp),

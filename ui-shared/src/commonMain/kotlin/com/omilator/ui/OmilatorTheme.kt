@@ -48,13 +48,13 @@ private val DarkColors = darkColorScheme(
     onError = Color.White,
 )
 
-// Light theme — Apple HIG light
-private val LightBackground = Color(0xFFF5F5F7)
+// Light theme — clean white matching iOS safe area
+private val LightBackground = Color(0xFFFFFFFF)
 private val LightSurface = Color(0xFFFFFFFF)
-private val LightSurfaceVariant = Color(0xFFEBEBF0)
+private val LightSurfaceVariant = Color(0xFFF2F2F7)
 private val LightOnBackground = Color(0xFF1C1C1E)
 private val LightOnSurface = Color(0xFF1C1C1E)
-private val LightOnSurfaceVariant = Color(0xFF6C6C70)
+private val LightOnSurfaceVariant = Color(0xFF8E8E93)
 
 private val LightColors = lightColorScheme(
     primary = Accent,
@@ -69,8 +69,8 @@ private val LightColors = lightColorScheme(
     onSurface = LightOnSurface,
     surfaceVariant = LightSurfaceVariant,
     onSurfaceVariant = LightOnSurfaceVariant,
-    outline = Color(0xFFD1D1D6),
-    outlineVariant = Color(0xFFE5E5EA),
+    outline = Color(0xFFE5E5EA),
+    outlineVariant = Color(0xFFF0F0F5),
     error = Color(0xFFFF3B30),
     onError = Color.White,
 )
@@ -80,7 +80,7 @@ fun OmilatorTheme(
     forceDark: Boolean? = null,
     content: @Composable () -> Unit,
 ) {
-    val isDark = forceDark ?: isSystemInDarkTheme()
+    val isDark = forceDark ?: false // Default to light (white) for iOS safe area match
     MaterialTheme(
         colorScheme = if (isDark) DarkColors else LightColors,
         typography = OmilatorTypography,
