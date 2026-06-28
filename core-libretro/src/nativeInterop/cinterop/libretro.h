@@ -1467,6 +1467,18 @@ enum retro_hw_context_type
    /* OpenGL ES 3.1+. Set version_major/version_minor. For GLES2 and GLES3,
     * use the corresponding enums directly. */
    RETRO_HW_CONTEXT_OPENGLES_VERSION = 5,
+   /* Vulkan. Frontend picks platform-specific Vulkan implementation.
+    * On iOS/tvOS, this is MoltenVK. On macOS, MoltenVK or Metal-Private-API.
+    * Frontend must fill in retro_hw_render_callback's get_proc_address
+    * with a Vulkan function loader (dlsym into libMoltenVK or vulkan loader).
+    * See retro_hw_render_interface_vulkan (env cmd 14, version >= 5) for
+    * the core-facing Vulkan bridge. */
+   RETRO_HW_CONTEXT_VULKAN           = 6,
+   /* Direct3D 9/10/11/12 (Windows / Xbox — not applicable to iOS/macOS). */
+   RETRO_HW_CONTEXT_D3D9             = 7,
+   RETRO_HW_CONTEXT_D3D10            = 8,
+   RETRO_HW_CONTEXT_D3D11            = 9,
+   RETRO_HW_CONTEXT_D3D12            = 10,
 
    RETRO_HW_CONTEXT_DUMMY = INT_MAX
 };

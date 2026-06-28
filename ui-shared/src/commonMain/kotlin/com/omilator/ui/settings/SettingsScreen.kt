@@ -35,9 +35,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.omilator.data.settings.AppTheme
+import com.omilator.data.settings.AppSettings
+import com.omilator.data.settings.SettingsStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 data class SettingsUiState(
     val theme: AppTheme = AppTheme.SYSTEM,
@@ -53,16 +59,22 @@ data class SettingsUiState(
     val theGamesDbApiKey: String = "",
 )
 
-class SettingsViewModel {
+class SettingsViewModel(
+    private val settingsStore: SettingsStore? = null,
+    private val settingsPath: String = "",
+) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val _state = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
 
     fun setTheme(theme: AppTheme) {
         _state.value = _state.value.copy(theme = theme)
+        persist()
     }
 
     fun setDirectories(dirs: List<String>) {
         _state.value = _state.value.copy(libraryDirectories = dirs)
+        persist()
     }
 
     fun addDirectory(dir: String) {
@@ -93,6 +105,26 @@ class SettingsViewModel {
 
     fun setTheGamesDbApiKey(key: String) {
         _state.value = _state.value.copy(theGamesDbApiKey = key)
+        persist()
+    }
+
+    /**
+     * Persist the current theme + API key + libraryDirectories to the
+     * SettingsStore. No-op if no store/path was provided (legacy callers).
+     */
+    private fun persist() {
+        val store = settingsStore ?: return
+        val s = _state.value
+        scope.launch {
+            store.saveAppSettings(
+                AppSettings(
+                    theme = s.theme,
+                    libraryDirectories = s.libraryDirectories,
+                    theGamesDbApiKey = s.theGamesDbApiKey,
+                ),
+                settingsPath,
+            )
+        }
     }
 }
 
@@ -157,7 +189,10 @@ fun SettingsScreen(
             }
         }
 
-        if (isDesktop) item {
+        item {
+            // Cores section shown on both desktop and iOS. iOS downloader uses
+            // host macOS CLI tools (vtool + codesign) — simulator-only, see
+            // IosCoreDownloader. Desktop uses the JVM CoreDownloader.
             SettingsCard(title = "Emulator cores") {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(

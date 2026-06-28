@@ -5,6 +5,7 @@ package com.omilator.core.libretro.impl
 import com.omilator.core.libretro.api.*
 import kotlinx.cinterop.*
 import kotlin.native.concurrent.ThreadLocal
+import platform.Foundation.NSLog
 import platform.posix.RTLD_NOW as _RTLD_NOW
 import platform.posix.dlopen
 import platform.posix.dlsym
@@ -19,9 +20,30 @@ import platform.posix.fread
 @ThreadLocal
 internal var nativeControllerInstance: NativeCoreController? = null
 
+@ThreadLocal
+internal var nativeHwRender: VulkanHwRender? = null
+
+// HW render callback function pointers. Kept as top-level val's so they
+// have stable addresses that survive the lifetime of the process —
+// retro_hw_render_callback holds raw C function pointers, not GC-able refs.
+//
+// Workaround (same as inputPollCb): 0-arg staticCFunction has overload
+// ambiguity in K/N. We declare with a dummy Int param — arm64 ABI ignores
+// extra callee params so the libretro-defined 0-arg signature still works.
+internal val hwGetFramebufferCb = staticCFunction { _: Int ->
+    nativeHwRender?.currentFramebuffer() ?: 0uL
+}
+
+internal val hwGetProcAddressCb = staticCFunction { sym: CPointer<ByteVar>? ->
+    val name = sym?.toKString()
+    if (name != null) nativeHwRender?.getProcAddress(name) else null
+}
+
 internal val envCb = staticCFunction { cmd: Int, data: CPointer<ByteVar>? ->
     val ctrl = nativeControllerInstance
-    if (ctrl != null) {
+    val result: Boolean = if (ctrl != null) {
+        // Log only HW render requests — everything else is per-frame spam.
+        if (cmd == 14 || cmd == 74) NSLog("[envCb] cmd=%d", cmd)
         when (cmd) {
             10 -> { // SET_PIXEL_FORMAT
                 if (data != null) {
@@ -29,10 +51,14 @@ internal val envCb = staticCFunction { cmd: Int, data: CPointer<ByteVar>? ->
                 }
                 true
             }
+            14 -> { // SET_HW_RENDER — struct retro_hw_render_callback*
+                ctrl.handleSetHwRender(data)
+            }
             0, 9, 19, 31, 51, 69 -> true
             else -> false
         }
     } else false
+    result
 }
 
 internal val videoCb = staticCFunction { data: CPointer<ByteVar>?, width: Int, height: Int, pitch: Int ->
@@ -93,11 +119,14 @@ internal class NativeCoreController : CoreController {
 
     override suspend fun loadCore(path: String): SystemInfo {
         nativeControllerInstance = this
+        // Try the caller-supplied path first (runtime-downloaded cores in
+        // Documents/cores/). If that fails, look for a bundled copy inside
+        // the app's Frameworks/ directory (cores shipped via setup-cores.sh).
         val h = dlopen(path, _RTLD_NOW)
-        if (h == null) {
-            val err = _dlerror()?.toKString() ?: "unknown"
-            throw RuntimeException("dlopen failed: $path — $err")
-        }
+            ?: dlopenBundledCore(path) ?: run {
+                val err = _dlerror()?.toKString() ?: "unknown"
+                throw RuntimeException("dlopen failed: $path — $err")
+            }
         handle = h
 
         // Set callbacks — cast function pointers to opaque
@@ -231,9 +260,65 @@ internal class NativeCoreController : CoreController {
                 data?.reinterpret<IntVar>()?.let { pixelFormat = it.pointed.value }
                 true
             }
+            14 -> handleSetHwRender(data?.reinterpret<ByteVar>())
             0, 9, 19, 31, 51, 69 -> true
             else -> false
         }
+    }
+
+    /**
+     * Handle RETRO_ENVIRONMENT_SET_HW_RENDER (cmd 14). The core passes a
+     * retro_hw_render_callback struct describing which HW context it needs.
+     *
+     * struct retro_hw_render_callback layout (arm64, 64 bytes):
+     *   offset 0:  context_type (enum, 4 bytes)
+     *   offset 4:  <padding>
+     *   offset 8:  context_reset (function pointer)
+     *   offset 16: get_current_framebuffer (function pointer — frontend fills)
+     *   offset 24: get_proc_address (function pointer — frontend fills)
+     *   offset 32: depth, stencil, bottom_left_origin (3x bool)
+     *   offset 36: version_major (unsigned)
+     *   offset 40: version_minor (unsigned)
+     *   offset 44: cache_context (bool)
+     *   offset 48: context_destroy (function pointer)
+     *   offset 56: debug_context (bool)
+     *
+     * We only support RETRO_HW_CONTEXT_VULKAN (=6) on iOS (via MoltenVK).
+     * For other context types we return false so the core can fall back to
+     * software rendering.
+     *
+     * After filling the frontend-side pointers, the core's context_reset
+     * is invoked by the libretro core itself (NOT us) when it observes the
+     * SET_HW_RENDER return true. Some cores expect context_reset to be
+     * called immediately; we delegate to the core's own threading model.
+     */
+    internal fun handleSetHwRender(data: CPointer<ByteVar>?): Boolean {
+        if (data == null) return false
+        val typeInt = data.reinterpret<IntVar>()[0]
+        if (typeInt != 6 /* RETRO_HW_CONTEXT_VULKAN */) {
+            println("[NativeCoreController] SET_HW_RENDER: unsupported context_type=$typeInt (only Vulkan=6 supported on iOS)")
+            return false
+        }
+
+        // Lazily prepare Vulkan (MTLDevice + dlopen MoltenVK).
+        val hw = VulkanHwRender()
+        if (!hw.prepare()) {
+            println("[NativeCoreController] SET_HW_RENDER: Vulkan prepare failed (MoltenVK not loadable)")
+            return false
+        }
+        nativeHwRender = hw
+
+        // Fill frontend-provided function pointers in the struct.
+        // Offset 16 = get_current_framebuffer, offset 24 = get_proc_address.
+        val ptrs = data.reinterpret<CPointerVar<*>>()
+        ptrs[2] = hwGetFramebufferCb
+        ptrs[3] = hwGetProcAddressCb
+
+        println("[NativeCoreController] SET_HW_RENDER: Vulkan context granted, framebuffer + proc_address callbacks installed")
+        // Note: the core calls context_reset itself once we return true.
+        // MoltenVK's vkCreateMetalSurfaceEXT will fail until we plumb the
+        // CAMetalLayer through — see VulkanHwRender TODO.
+        return true
     }
 }
 
@@ -252,5 +337,28 @@ private fun readRomToBytes(path: String): ByteArray = memScoped {
         buf.readBytes(size)
     } finally {
         fclose(fp)
+    }
+}
+
+/**
+ * Resolve a core to its bundled copy in the app's Frameworks/ directory,
+ * if one ships with the app (see setup-cores.sh). Returns null if no
+ * bundled match exists — caller falls back to runtime-downloaded cores.
+ *
+ * `path` is the Documents/cores path the caller tried first. We extract
+ * the dylib basename (e.g. "mgba_libretro.dylib") and look for the same
+ * name under NSBundle.mainBundle.bundlePath/Frameworks/.
+ */
+@OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+private fun dlopenBundledCore(path: String): CPointer<*>? {
+    val basename = path.substringAfterLast('/')
+    if (basename.isBlank()) return null
+    val bundlePath = platform.Foundation.NSBundle.mainBundle.bundlePath
+    val bundled = "$bundlePath/Frameworks/$basename"
+    return if (platform.Foundation.NSFileManager.defaultManager.fileExistsAtPath(bundled)) {
+        println("[NativeCoreController] using bundled core: $bundled")
+        dlopen(bundled, _RTLD_NOW)
+    } else {
+        null
     }
 }

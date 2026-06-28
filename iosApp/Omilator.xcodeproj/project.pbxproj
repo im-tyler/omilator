@@ -7,21 +7,58 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		2EB7D7C6AFB3E2B9C7AB5511 /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_FCBF172E-1F15-4DAD-A95A-956E0961675A" /* iOSApp.swift */; };
-		C3753E7719C7F779CA8F8D59 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_978033AD-A137-47F9-B914-18DF65FCF1A7" /* Assets.xcassets */; };
+		07619CB09DC3072C030776AB /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_335C1D31-961E-4177-951B-57765E8E8179" /* iOSApp.swift */; };
+		141A86240D3DFFC8B8C71109 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_14BE6CFE-E6D5-4059-87EB-BE98F9CD159C" /* Assets.xcassets */; };
+		522720A9A62EC9C8638B5DE8 /* MoltenVK.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 5B8116C1CEFD4EB2438406CC /* MoltenVK.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A241B71BE4165E1D012092CC /* MoltenVK.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5B8116C1CEFD4EB2438406CC /* MoltenVK.xcframework */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		FF906FD2922285FF2DA2E599 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				522720A9A62EC9C8638B5DE8 /* MoltenVK.xcframework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		0103209F18157D58720404FA /* Omilator.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Omilator.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		"TEMP_978033AD-A137-47F9-B914-18DF65FCF1A7" /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		"TEMP_CEA3BFF2-7FA8-47FB-AEB1-B8471DE1B981" /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		"TEMP_FCBF172E-1F15-4DAD-A95A-956E0961675A" /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
+		5B8116C1CEFD4EB2438406CC /* MoltenVK.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = MoltenVK.xcframework; path = Frameworks/MoltenVK.xcframework; sourceTree = "<group>"; };
+		"TEMP_14BE6CFE-E6D5-4059-87EB-BE98F9CD159C" /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		"TEMP_335C1D31-961E-4177-951B-57765E8E8179" /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
+		"TEMP_5F4B6A1A-2F7D-4272-981A-F175A2E167A7" /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFrameworksBuildPhase section */
+		62FA2B64303BB9F04245EC9E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A241B71BE4165E1D012092CC /* MoltenVK.xcframework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
 /* Begin PBXGroup section */
+		8DFBFBB5CAAA38460385E56C /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				5B8116C1CEFD4EB2438406CC /* MoltenVK.xcframework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		D70B4BDB9504F4F1B2B8BD9C = {
 			isa = PBXGroup;
 			children = (
+				8DFBFBB5CAAA38460385E56C /* Frameworks */,
 				F8BA1B37DF7B45C372EEE930 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -34,12 +71,12 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		"TEMP_21BA71C3-58A0-4804-B7C7-00C42DDFB0CE" /* . */ = {
+		"TEMP_3459912A-DBED-46EE-8A8A-6C2024DA1635" /* . */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_978033AD-A137-47F9-B914-18DF65FCF1A7" /* Assets.xcassets */,
-				"TEMP_FCBF172E-1F15-4DAD-A95A-956E0961675A" /* iOSApp.swift */,
-				"TEMP_CEA3BFF2-7FA8-47FB-AEB1-B8471DE1B981" /* Info.plist */,
+				"TEMP_14BE6CFE-E6D5-4059-87EB-BE98F9CD159C" /* Assets.xcassets */,
+				"TEMP_335C1D31-961E-4177-951B-57765E8E8179" /* iOSApp.swift */,
+				"TEMP_5F4B6A1A-2F7D-4272-981A-F175A2E167A7" /* Info.plist */,
 			);
 			name = .;
 			path = .;
@@ -54,6 +91,9 @@
 			buildPhases = (
 				785DBD533591D67942DADDF5 /* Sources */,
 				5A6D1A0B8C592FE35703264A /* Resources */,
+				62FA2B64303BB9F04245EC9E /* Frameworks */,
+				FF906FD2922285FF2DA2E599 /* Embed Frameworks */,
+				21FB57605AF975E7488BCBD4 /* Sign embedded frameworks */,
 			);
 			buildRules = (
 			);
@@ -101,18 +141,39 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C3753E7719C7F779CA8F8D59 /* Assets.xcassets in Resources */,
+				141A86240D3DFFC8B8C71109 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		21FB57605AF975E7488BCBD4 /* Sign embedded frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Sign embedded frameworks";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nAPP_FRAMEWORKS=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\n# MoltenVK.framework is a directory; sign the binary inside.\nif [ -d \"$APP_FRAMEWORKS/MoltenVK.framework\" ]; then\n  /usr/bin/codesign --force --sign - --timestamp=none \\\n    \"$APP_FRAMEWORKS/MoltenVK.framework\" >/dev/null 2>&1 || true\nfi\n# Loose libretro core dylibs (from setup-cores.sh).\nfor dylib in \"${SRCROOT}/Frameworks\"/*.dylib; do\n  [ -f \"$dylib\" ] || continue\n  cp -f \"$dylib\" \"$APP_FRAMEWORKS/\"\n  /usr/bin/codesign --force --sign - --timestamp=none \\\n    \"$APP_FRAMEWORKS/$(basename \"$dylib\")\" >/dev/null 2>&1 || true\ndone\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		785DBD533591D67942DADDF5 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2EB7D7C6AFB3E2B9C7AB5511 /* iOSApp.swift in Sources */,
+				07619CB09DC3072C030776AB /* iOSApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -188,6 +249,8 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SRCROOT)/../ui-shared/build/bin/iosSimulatorArm64/debugFramework",
 					"$(SRCROOT)/../ui-shared/build/bin/iosArm64/debugFramework",
+					"$(SRCROOT)/Frameworks/MoltenVK.xcframework",
+					"\"Frameworks\"",
 				);
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -197,6 +260,10 @@
 				MARKETING_VERSION = 0.2.0;
 				OTHER_LDFLAGS = (
 					"-framework UiShared",
+					"-framework MoltenVK",
+					"-framework Metal",
+					"-framework QuartzCore",
+					"-framework UIKit",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.omilator.app;
 				SDKROOT = iphoneos;
@@ -280,6 +347,8 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SRCROOT)/../ui-shared/build/bin/iosSimulatorArm64/debugFramework",
 					"$(SRCROOT)/../ui-shared/build/bin/iosArm64/debugFramework",
+					"$(SRCROOT)/Frameworks/MoltenVK.xcframework",
+					"\"Frameworks\"",
 				);
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -289,6 +358,10 @@
 				MARKETING_VERSION = 0.2.0;
 				OTHER_LDFLAGS = (
 					"-framework UiShared",
+					"-framework MoltenVK",
+					"-framework Metal",
+					"-framework QuartzCore",
+					"-framework UIKit",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.omilator.app;
 				SDKROOT = iphoneos;

@@ -31,9 +31,20 @@ kotlin {
             isStatic = true
         }
         iosTarget.compilations.getByName("main").cinterops {
+            val vulkanHeaders = project.file("src/nativeInterop/cinterop/vulkan")
             create("libretro") {
                 defFile(project.file("src/nativeInterop/cinterop/libretro.def"))
                 includeDirs(project.file("src/nativeInterop/cinterop"))
+            }
+            // Vulkan HW render (MoltenVK) — required for PSP/GameCube/Wii cores.
+            // Only enabled if the vulkan headers are vendored (run ./setup-moltenvk.sh).
+            if (vulkanHeaders.exists() && vulkanHeaders.listFiles()?.any { it.extension == "h" } == true) {
+                create("vulkan") {
+                    defFile(project.file("src/nativeInterop/cinterop/vulkan.def"))
+                    // vulkan_core.h #includes "vk_video/..." relative to its own dir.
+                    includeDirs(vulkanHeaders, project.file("src/nativeInterop/cinterop"))
+                    compilerOpts("-DVK_USE_PLATFORM_METAL", "-DVK_NO_PROTOTYPES")
+                }
             }
         }
     }

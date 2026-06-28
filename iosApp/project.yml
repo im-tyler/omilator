@@ -23,6 +23,7 @@ targets:
           - "project.yml"
           - "*.xcodeproj/**"
           - "build/**"
+          - "Frameworks/**"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.omilator.app
@@ -34,5 +35,38 @@ targets:
         FRAMEWORK_SEARCH_PATHS:
           - "$(SRCROOT)/../ui-shared/build/bin/iosSimulatorArm64/debugFramework"
           - "$(SRCROOT)/../ui-shared/build/bin/iosArm64/debugFramework"
+          - "$(SRCROOT)/Frameworks/MoltenVK.xcframework"
         OTHER_LDFLAGS:
           - "-framework UiShared"
+          - "-framework MoltenVK"
+          - "-framework Metal"
+          - "-framework QuartzCore"
+          - "-framework UIKit"
+    dependencies:
+      # MoltenVK.xcframework — provides Vulkan via Metal translation.
+      # Required for PSP/GameCube/Wii/Dreamcast libretro cores (HW render).
+      # Vendored by setup-moltenvk.sh. Comment out if you don't need HW render
+      # and want to skip the ~80MB framework in the app bundle.
+      - framework: Frameworks/MoltenVK.xcframework
+        embed: true
+    postBuildScripts:
+      # Re-sign MoltenVK.framework and any bundled libretro core dylibs.
+      # The simulator enforces code-signature validity even with
+      # CODE_SIGNING_ALLOWED=NO; without this, dyld rejects the framework
+      # at app launch with "code signature in <hash> not valid".
+      - name: Sign embedded frameworks
+        script: |
+          set -e
+          APP_FRAMEWORKS="${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}"
+          # MoltenVK.framework is a directory; sign the binary inside.
+          if [ -d "$APP_FRAMEWORKS/MoltenVK.framework" ]; then
+            /usr/bin/codesign --force --sign - --timestamp=none \
+              "$APP_FRAMEWORKS/MoltenVK.framework" >/dev/null 2>&1 || true
+          fi
+          # Loose libretro core dylibs (from setup-cores.sh).
+          for dylib in "${SRCROOT}/Frameworks"/*.dylib; do
+            [ -f "$dylib" ] || continue
+            cp -f "$dylib" "$APP_FRAMEWORKS/"
+            /usr/bin/codesign --force --sign - --timestamp=none \
+              "$APP_FRAMEWORKS/$(basename "$dylib")" >/dev/null 2>&1 || true
+          done

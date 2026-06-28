@@ -62,3 +62,9 @@ compose.desktop {
         }
     }
 }
+
+// NOTE: Compose Desktop's `packageReleaseDmg` task runs ProGuard which chokes
+// on LWJGL's references to javax.annotation.Nullable (a findbugs-only
+// annotation that isn't on the runtime classpath). Rather than maintain
+// -dontwarn rules, ship the debug build via `createDistributable` (which
+// skips ProGuard) and create the DMG via hdiutil. See release-dmg.sh.

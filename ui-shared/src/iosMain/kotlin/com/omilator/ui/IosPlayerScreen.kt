@@ -2,8 +2,11 @@
 
 package com.omilator.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,15 +33,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
@@ -53,6 +61,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.abs
+import kotlin.math.hypot
 
 @Composable
 fun IosPlayerScreen(romPath: String, corePath: String, onExit: () -> Unit = {}) {
@@ -62,16 +72,22 @@ fun IosPlayerScreen(romPath: String, corePath: String, onExit: () -> Unit = {}) 
     var frameW by remember { mutableStateOf(0) }
     var frameH by remember { mutableStateOf(0) }
 
-    val scope = remember { CoroutineScope(Dispatchers.Default) }
+    // rememberCoroutineScope auto-cancels when the composable leaves the
+    // composition — without this the runFrame loop would leak across game
+    // switches (previous code used remember { CoroutineScope(...) } which
+    // never cancelled, leaving the core + audio engine running forever).
+    val scope = rememberCoroutineScope()
     val controller = remember { createCoreController("") }
     val audioOutput = remember { IosAudioOutput() }
     val buttonStates = remember { mutableStateMapOf<Int, Boolean>() }
 
     remember {
-        scope.launch {
+        scope.launch(Dispatchers.Default) {
             try {
+                logI("Player", "loading core: $corePath")
                 controller.loadCore(corePath)
                 val avInfo = controller.loadGame(romPath)
+                logI("Player", "loaded: ${avInfo.geometry.baseWidth}x${avInfo.geometry.baseHeight} @ ${avInfo.timing.fps}fps, audio ${avInfo.timing.sampleRate}Hz")
                 frameW = avInfo.geometry.baseWidth.toInt()
                 frameH = avInfo.geometry.baseHeight.toInt()
                 audioOutput.configure(avInfo.timing.sampleRate, channels = 2)
@@ -203,7 +219,7 @@ private fun ControllerBar(buttonStates: MutableMap<Int, Boolean>) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // === D-PAD ===
+        // === D-PAD (single touch surface, computes direction from offset) ===
         DpadSection(buttonStates)
 
         // === START / SELECT ===
@@ -226,21 +242,136 @@ private fun ControllerBar(buttonStates: MutableMap<Int, Boolean>) {
     }
 }
 
+// === D-PAD ===
+//
+// One 132x132dp touch surface. Touch offset relative to center determines
+// direction (UP/DOWN/LEFT/RIGHT). Sliding the thumb rolls the active
+// direction without lifting. A small deadzone around the center rejects
+// jitter. Visuals are a non-interactive 3x3 grid that lights up the active
+// quadrant by reading the same `activeDirection` state.
+
+private const val DPAD_UP = 4
+private const val DPAD_DOWN = 5
+private const val DPAD_LEFT = 6
+private const val DPAD_RIGHT = 7
+
 @Composable
 private fun DpadSection(buttonStates: MutableMap<Int, Boolean>) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+    var activeDirection by remember { mutableStateOf<Int?>(null) }
+
+    Box(
+        modifier = Modifier
+            .size(132.dp)
+            .pointerInput(Unit) {
+                // Deadzone in px — pointer inside this radius from center
+                // registers no direction. ~10dp keeps the touch target crisp
+                // without making the center feel unresponsive.
+                val deadzonePx = 10.dp.toPx()
+                val cx = size.width / 2f
+                val cy = size.height / 2f
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    down.consume()
+
+                    var current = directionFromOffset(down.position, cx, cy, deadzonePx)
+                    applyDirection(current, null, buttonStates)
+                    activeDirection = current
+
+                    // Track this pointer until release. Exit-on-leave handled
+                    // by checking bounds, so the button can't get stuck if
+                    // the finger slides off the D-pad entirely.
+                    var pointerInside = true
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id }
+                            ?: continue
+                        change.consume()
+
+                        if (!change.pressed) {
+                            applyDirection(null, current, buttonStates)
+                            activeDirection = null
+                            break
+                        }
+
+                        val inside = isInside(change.position, size)
+                        val newDir = if (inside) {
+                            directionFromOffset(change.position, cx, cy, deadzonePx)
+                        } else null
+                        if (inside != pointerInside || newDir != current) {
+                            pointerInside = inside
+                            if (newDir != current) {
+                                applyDirection(newDir, current, buttonStates)
+                                current = newDir
+                                activeDirection = newDir
+                            }
+                        }
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center,
     ) {
-        DpadButton("\u25B2", buttonStates, 4) // UP
-        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            DpadButton("\u25C0", buttonStates, 6) // LEFT
-            Box(modifier = Modifier.size(44.dp).background(Color(0xFF2A2A32)))
-            DpadButton("\u25B6", buttonStates, 7) // RIGHT
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            DpadCell("\u25B2", DPAD_UP, activeDirection)
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                DpadCell("\u25C0", DPAD_LEFT, activeDirection)
+                Box(modifier = Modifier.size(44.dp).background(Color(0xFF2A2A32)))
+                DpadCell("\u25B6", DPAD_RIGHT, activeDirection)
+            }
+            DpadCell("\u25BC", DPAD_DOWN, activeDirection)
         }
-        DpadButton("\u25BC", buttonStates, 5) // DOWN
     }
 }
+
+private fun directionFromOffset(position: Offset, cx: Float, cy: Float, deadzonePx: Float): Int? {
+    val dx = position.x - cx
+    val dy = position.y - cy
+    if (hypot(dx, dy) < deadzonePx) return null
+    // Pick dominant axis. Corners count as the axis they're closer to.
+    return if (abs(dx) > abs(dy)) {
+        if (dx > 0) DPAD_RIGHT else DPAD_LEFT
+    } else {
+        if (dy > 0) DPAD_DOWN else DPAD_UP
+    }
+}
+
+@Composable
+private fun DpadCell(arrow: String, dir: Int, activeDirection: Int?) {
+    val isActive = activeDirection == dir
+    val baseColor = if (isActive) Color(0xFF5A5A6A) else Color(0xFF3A3A44)
+    val scale by animateFloatAsState(
+        targetValue = if (isActive) 0.94f else 1f,
+        animationSpec = tween(durationMillis = 60),
+        label = "dpad-$dir",
+    )
+
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .shadow(
+                elevation = if (isActive) 1.dp else 4.dp,
+                shape = RoundedCornerShape(6.dp),
+            )
+            .clip(RoundedCornerShape(6.dp))
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(
+                        baseColor.copy(brightness = 1.2f),
+                        baseColor,
+                        baseColor.copy(brightness = 0.8f),
+                    ),
+                )
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(arrow, color = Color.White.copy(alpha = if (isActive) 1f else 0.7f), fontSize = 14.sp)
+    }
+}
+
+// === ACTION BUTTONS (A/B) ===
 
 @Composable
 private fun ActionButton(
@@ -250,11 +381,16 @@ private fun ActionButton(
     buttonId: Int,
 ) {
     var pressed by remember { mutableStateOf(false) }
-    val scale = if (pressed) 0.92f else 1f
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.92f else 1f,
+        animationSpec = tween(durationMillis = 60),
+        label = "action-$buttonId",
+    )
 
     Box(
         modifier = Modifier
-            .size(64.dp * scale)
+            .size(64.dp)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .shadow(
                 elevation = if (pressed) 2.dp else 8.dp,
                 shape = CircleShape,
@@ -265,23 +401,13 @@ private fun ActionButton(
             .background(
                 Brush.radialGradient(
                     colors = listOf(
-                        color.copy(brightness = 1.3f),
+                        color.copy(brightness = if (pressed) 1.0f else 1.3f),
                         color,
-                        color.copy(brightness = 0.7f),
+                        color.copy(brightness = if (pressed) 0.6f else 0.7f),
                     ),
                 )
             )
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        pressed = true
-                        buttonStates[buttonId] = true
-                        tryAwaitRelease()
-                        pressed = false
-                        buttonStates[buttonId] = false
-                    }
-                )
-            },
+            .pressable(buttonId, buttonStates) { pressed = it },
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -294,50 +420,6 @@ private fun ActionButton(
 }
 
 @Composable
-private fun DpadButton(
-    arrow: String,
-    buttonStates: MutableMap<Int, Boolean>,
-    buttonId: Int,
-) {
-    var pressed by remember { mutableStateOf(false) }
-    val color = if (pressed) Color(0xFF5A5A6A) else Color(0xFF3A3A44)
-    val scale = if (pressed) 0.92f else 1f
-
-    Box(
-        modifier = Modifier
-            .size((44.dp * scale))
-            .shadow(
-                elevation = if (pressed) 1.dp else 4.dp,
-                shape = RoundedCornerShape(6.dp),
-            )
-            .clip(RoundedCornerShape(6.dp))
-            .background(
-                Brush.radialGradient(
-                    colors = listOf(
-                        color.copy(brightness = 1.2f),
-                        color,
-                        color.copy(brightness = 0.8f),
-                    ),
-                )
-            )
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        pressed = true
-                        buttonStates[buttonId] = true
-                        tryAwaitRelease()
-                        pressed = false
-                        buttonStates[buttonId] = false
-                    }
-                )
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(arrow, color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
-    }
-}
-
-@Composable
 private fun SmallButton(
     label: String,
     color: Color,
@@ -345,10 +427,16 @@ private fun SmallButton(
     buttonId: Int,
 ) {
     var pressed by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.94f else 1f,
+        animationSpec = tween(durationMillis = 60),
+        label = "small-$buttonId",
+    )
 
     Box(
         modifier = Modifier
             .size(width = 56.dp, height = 28.dp)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .shadow(
                 elevation = if (pressed) 1.dp else 3.dp,
                 shape = RoundedCornerShape(14.dp),
@@ -357,26 +445,73 @@ private fun SmallButton(
             .background(
                 Brush.radialGradient(
                     colors = listOf(
-                        color.copy(brightness = 1.2f),
+                        color.copy(brightness = if (pressed) 1.0f else 1.2f),
                         color,
                     ),
                 )
             )
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        pressed = true
-                        buttonStates[buttonId] = true
-                        tryAwaitRelease()
-                        pressed = false
-                        buttonStates[buttonId] = false
-                    }
-                )
-            },
+            .pressable(buttonId, buttonStates) { pressed = it },
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp, fontWeight = FontWeight.Medium)
+        Text(label, color = Color.White.copy(alpha = if (pressed) 0.9f else 0.6f), fontSize = 9.sp, fontWeight = FontWeight.Medium)
     }
+}
+
+// === TOUCH HANDLING ===
+//
+// Multi-touch fix: each button gets its own pointerInput. We track the
+// specific pointer (by id) that did the initial down, and only release when
+// *that* pointer lifts OR leaves the button bounds. Previous code used
+// detectTapGestures.onPress + tryAwaitRelease which blocks until ALL
+// pointers are up — broke multi-touch (hold A, tap B, A stayed "pressed").
+//
+// Exit-on-leave prevents the sticky-button bug where a finger slides off
+// the button without lifting — without this, the button would stay pressed
+// because pointerInput stops receiving events for a pointer that's left
+// the hit-test bounds.
+
+private fun Modifier.pressable(
+    buttonId: Int,
+    buttonStates: MutableMap<Int, Boolean>,
+    onChange: (Boolean) -> Unit,
+): Modifier = this.pointerInput(buttonId) {
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false)
+        down.consume()
+        onChange(true)
+        buttonStates[buttonId] = true
+
+        while (true) {
+            val event = awaitPointerEvent()
+            val change = event.changes.firstOrNull { it.id == down.id } ?: continue
+            change.consume()
+
+            if (!change.pressed) {
+                onChange(false)
+                buttonStates[buttonId] = false
+                break
+            }
+            if (!isInside(change.position, size)) {
+                onChange(false)
+                buttonStates[buttonId] = false
+                break
+            }
+        }
+    }
+}
+
+private fun isInside(position: Offset, size: IntSize): Boolean {
+    return position.x >= 0f && position.y >= 0f &&
+        position.x <= size.width && position.y <= size.height
+}
+
+private fun applyDirection(
+    newDir: Int?,
+    oldDir: Int?,
+    buttonStates: MutableMap<Int, Boolean>,
+) {
+    if (oldDir != null && oldDir != newDir) buttonStates[oldDir] = false
+    if (newDir != null && newDir != oldDir) buttonStates[newDir] = true
 }
 
 // === HELPERS ===

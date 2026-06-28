@@ -14,6 +14,47 @@ struct iOSApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onOpenURL { url in
+                    handle(url: url)
+                }
+        }
+    }
+
+    /// URL scheme handler. Supports `omilator://play/<absolute-rom-path>`
+    /// (URL-encoded). Drops the slot into PendingPlay so RootViewController's
+    /// next composition launches the player directly. Used by
+    /// `xcrun simctl openurl` for automated testing.
+    private func handle(url: URL) {
+        NSLog("[Omilator] openURL: %@", url.absoluteString)
+        guard url.scheme?.lowercased() == "omilator" else {
+            NSLog("[Omilator] rejected scheme: %@", url.scheme ?? "(nil)")
+            return
+        }
+        let host = url.host?.lowercased() ?? ""
+        NSLog("[Omilator] host='%@', path='%@'", host, url.path)
+        // URL.host drops the trailing path when there's no authority "//",
+        // so we also accept the path-only form: omilator://play/<path>
+        var romPath: String
+        if host == "play" {
+            romPath = url.path
+        } else if url.absoluteString.contains("://play/") {
+            if let range = url.absoluteString.range(of: "://play/") {
+                romPath = String(url.absoluteString[range.upperBound...])
+            } else {
+                return
+            }
+        } else {
+            NSLog("[Omilator] not a play URL")
+            return
+        }
+        // Strip leading slash if present (path-style)
+        if romPath.hasPrefix("/") { romPath.removeFirst() }
+        // URL-decode
+        romPath = romPath.removingPercentEncoding ?? romPath
+        NSLog("[Omilator] decoded romPath='%@'", romPath)
+        if !romPath.isEmpty {
+            PendingPlayKt.setPendingPlayRom(path: romPath)
+            NSLog("[Omilator] setPendingPlayRom called")
         }
     }
 }

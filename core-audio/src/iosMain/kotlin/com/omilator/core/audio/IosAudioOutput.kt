@@ -1,9 +1,11 @@
-@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class, kotlinx.cinterop.BetaInteropApi::class)
 
 package com.omilator.core.audio
 
 import kotlinx.cinterop.*
 import platform.AVFAudio.*
+import platform.Foundation.NSLog
+import platform.Foundation.NSError
 
 class IosAudioOutput : AudioOutput {
     override var sampleRate: Double = 0.0
@@ -13,39 +15,113 @@ class IosAudioOutput : AudioOutput {
 
     private var engine: AVAudioEngine? = null
     private var playerNode: AVAudioPlayerNode? = null
+    private var srcFormat: AVAudioFormat? = null
     private var started = false
+    private var pendingBuffers: Int = 0
+    private var firstBufferLogged = false
 
     override fun configure(sampleRate: Double, channels: Int) {
         this.sampleRate = sampleRate
         this.channels = channels
         stop()
 
+        // AVAudioSession MUST be active before AVAudioEngine produces sound.
+        // Without .playback + setActive(true), scheduleBuffer silently no-ops
+        // (engine appears to run but produces no output).
+        val session = AVAudioSession.sharedInstance()
+        memScoped {
+            val err = alloc<ObjCObjectVar<NSError?>>()
+            val catOk = session.setCategory(
+                AVAudioSessionCategoryPlayback,
+                AVAudioSessionModeDefault,
+                0u,
+                err.ptr,
+            )
+            if (!catOk) NSLog("[Audio] setCategory failed: ${err.value?.localizedDescription ?: "(nil)"}")
+            val actOk = session.setActive(true, 0u, err.ptr)
+            if (!actOk) NSLog("[Audio] setActive failed: ${err.value?.localizedDescription ?: "(nil)"}")
+        }
+
+        // Float32 non-interleaved: canonical iOS path. AVAudioEngine converts
+        // to the HW format at the mixer node automatically. Avoids the
+        // int16ChannelData AudioBufferList quirks.
+        val fmt = AVAudioFormat(
+            commonFormat = AVAudioPCMFormatFloat32,
+            sampleRate = sampleRate,
+            channels = channels.toUInt(),
+            interleaved = false,
+        ) ?: run {
+            NSLog("[Audio] failed to build source format")
+            return
+        }
+        srcFormat = fmt
+
         val eng = AVAudioEngine()
         val node = AVAudioPlayerNode()
         eng.attachNode(node)
-        val hwFormat = eng.outputNode.outputFormatForBus(0u)
-        eng.connect(node, eng.mainMixerNode, hwFormat)
+        eng.connect(node, eng.mainMixerNode, fmt)
         engine = eng
         playerNode = node
         eng.prepare()
+        memScoped {
+            val err = alloc<ObjCObjectVar<NSError?>>()
+            val ok = eng.startAndReturnError(err.ptr)
+            if (!ok) NSLog("[Audio] engine start failed: ${err.value?.localizedDescription ?: "(nil)"}")
+        }
         node.play()
-        eng.startAndReturnError(null)
         started = true
-        println("[Audio] Started: ${sampleRate}Hz → ${hwFormat.sampleRate}Hz")
+        NSLog("[Audio] Started: ${sampleRate}Hz ${channels}ch -> HW ${eng.outputNode.outputFormatForBus(0u).sampleRate}Hz")
     }
 
     override fun write(samples: ShortArray): Int {
         if (!started || samples.isEmpty()) return samples.size
-        // Simplified: just buffer the samples. Full AVAudioPCMBuffer
-        // scheduling requires ObjC bridging that's complex in Kotlin/Native.
-        // Audio plays when we can create proper PCM buffers.
-        // For now, samples are consumed (prevents buffer overflow) but silent.
+        val node = playerNode ?: return samples.size
+        val fmt = srcFormat ?: return samples.size
+
+        // Backpressure: cap queued buffers so a stalled engine can't grow
+        // memory unbounded. Drop new input until something drains. Torn read
+        // is harmless — at worst we drop or queue one extra batch.
+        if (pendingBuffers >= MAX_PENDING) return samples.size
+
+        val frames = samples.size / channels
+        if (frames == 0) return samples.size
+
+        val buffer = AVAudioPCMBuffer(pCMFormat = fmt, frameCapacity = frames.toUInt())
+            ?: return samples.size
+        buffer.frameLength = frames.toUInt()
+
+        val channelsPtr = buffer.floatChannelData ?: return samples.size
+        val scale = 1f / 32768f
+        if (channels == 2) {
+            val left = channelsPtr[0]!!
+            val right = channelsPtr[1]!!
+            var i = 0
+            for (f in 0 until frames) {
+                left[f] = samples[i].toFloat() * scale
+                right[f] = samples[i + 1].toFloat() * scale
+                i += 2
+            }
+        } else {
+            val ch = channelsPtr[0]!!
+            for (f in 0 until frames) {
+                ch[f] = samples[f].toFloat() * scale
+            }
+        }
+
+        pendingBuffers++
+        if (!firstBufferLogged) {
+            firstBufferLogged = true
+            NSLog("[Audio] first buffer scheduled: $frames frames")
+        }
+        node.scheduleBuffer(buffer) {
+            pendingBuffers--
+        }
         return samples.size
     }
 
     override fun flush() {
-        playerNode?.stop()
-        playerNode?.play()
+        // Drop queued buffers (used by rewind / run-ahead).
+        playerNode?.reset()
     }
 
     override fun release() {
@@ -56,9 +132,26 @@ class IosAudioOutput : AudioOutput {
         if (started) {
             playerNode?.stop()
             engine?.stop()
+            // Tell iOS we're done so background audio apps can resume.
+            memScoped {
+                val err = alloc<ObjCObjectVar<NSError?>>()
+                AVAudioSession.sharedInstance().setActive(
+                    false,
+                    AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation,
+                    err.ptr,
+                )
+            }
             started = false
+            pendingBuffers = 0
         }
         engine = null
         playerNode = null
+        srcFormat = null
+    }
+
+    private companion object {
+        // ~8 batches at 60fps = ~130ms of buffer. Enough jitter slack without
+        // being a latency sink.
+        const val MAX_PENDING = 8
     }
 }

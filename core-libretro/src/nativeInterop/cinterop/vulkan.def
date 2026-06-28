@@ -1,0 +1,16 @@
+// vulkan.def — cinterop definitions for Vulkan headers
+//
+// Brings in the Vk* types and function declarations needed to implement
+// HW render via MoltenVK on iOS. The actual implementation lives in
+// libMoltenVK.dylib (vendored as MoltenVK.xcframework inside the iOS app).
+//
+// compilerOpts and includeDirs are set in core-libretro/build.gradle.kts
+// (cinterops.create("vulkan") block) — keeps the .def file portable and
+// sidesteps the .def-file compilerOpts parsing quirks (literal `-D` gets
+// eaten into `-` + identifier).
+
+headers \
+    vk_platform.h \
+    vulkan_core.h \
+    vulkan_ios.h \
+    vulkan_metal.h

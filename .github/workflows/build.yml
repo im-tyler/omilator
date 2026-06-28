@@ -1,0 +1,187 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  #--------------------------------------------------------------------
+  # Desktop builds — Windows, Linux, macOS.
+  # HW render (GLFW) should work on Windows and Linux; macOS is blocked
+  # by the GLFW/Cocoa main-thread conflict (documented in SESSION_NOTES).
+  #--------------------------------------------------------------------
+  desktop:
+    name: Desktop (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', 'gradle/libs.versions.toml', 'gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      # Linux: GLFW needs a few X11 libraries even for headless compile.
+      - name: Install Linux native deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev libglfw3-dev libopenal-dev \
+            xvfb xauth
+
+      - name: Compile desktop
+        shell: bash
+        run: ./gradlew :app-desktop:compileKotlinDesktop --no-daemon
+
+      - name: Build distribution (.app / .exe / .deb)
+        shell: bash
+        run: ./gradlew :app-desktop:createDistributable --no-daemon
+
+      # Smoke-test that the desktop app actually launches on Linux + Windows.
+      # macOS is skipped here because the GLFW/Cocoa main-thread conflict
+      # is documented separately and the createDistributable path is the
+      # macOS shipping route.
+      - name: Runtime launch smoke test (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -e
+          # Xvfb gives the GLFW window a display to attach to.
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x800x24" \
+            timeout 15 \
+            java -cp "app-desktop/build/libs/*:app-desktop/build/compose/tmp/prepareAppResources/*:ui-shared/build/libs/*:core-libretro/build/libs/*:core-audio/build/libs/*:core-render/build/libs/*:core-input/build/libs/*:data-library/build/libs/*:data-settings/build/libs/*:data-saves/build/libs/*:data-launcher/build/libs/*" \
+              --enable-native-access=ALL-UNNAMED \
+              com.omilator.app.MainKt &
+          APP_PID=$!
+          # Wait briefly; if the process is still alive after 10s, the JVM
+          # booted, Compose initialised, and the window opened. We kill it
+          # and consider the smoke test passed.
+          sleep 10
+          if kill -0 $APP_PID 2>/dev/null; then
+            echo "OK: app launched"
+            kill $APP_PID 2>/dev/null || true
+          else
+            echo "FAIL: app crashed within 10 seconds"
+            exit 1
+          fi
+
+      - name: Runtime launch smoke test (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Windows doesn't need Xvfb but does need the LWJGL natives on
+          # java.library.path. The createDistributable task bundles them
+          # into the .exe; we just smoke-test that.
+          $exe = Get-ChildItem -Path "app-desktop/build/compose/binaries/main/app" -Filter "*.exe" -Recurse | Select-Object -First 1
+          if (-not $exe) { Write-Host "No .exe found, skipping"; exit 0 }
+          $proc = Start-Process -FilePath $exe.FullName -PassThru
+          Start-Sleep -Seconds 10
+          if (-not $proc.HasExited) {
+            Write-Host "OK: app launched"
+            Stop-Process -Id $proc.Id -Force
+          } else {
+            Write-Host "FAIL: app exited with code $($proc.ExitCode) within 10s"
+            exit 1
+          }
+
+      # The release DMG path (macOS only) skips ProGuard via release-dmg.sh
+      # because Compose's default ProGuard config chokes on LWJGL's
+      # javax.annotation.Nullable references.
+      - name: Build macOS DMG
+        if: runner.os == 'macOS'
+        shell: bash
+        run: ./app-desktop/release-dmg.sh
+
+      - name: Upload macOS DMG
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Omilator-macOS-dmg
+          path: app-desktop/build/compose/binaries/main/Omilator-*.dmg
+          if-no-files-found: warn
+
+      - name: Upload distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Omilator-${{ runner.os }}-app
+          path: app-desktop/build/compose/binaries/main/app/
+          if-no-files-found: warn
+
+  #--------------------------------------------------------------------
+  # libretro verification (JVM-only — fast smoke test of the FFM bridge).
+  #--------------------------------------------------------------------
+  verify-libretro:
+    name: Verify libretro FFM
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-verify-${{ hashFiles('**/*.gradle*', 'gradle/libs.versions.toml') }}
+
+      - name: Compile log bridge
+        run: ./gradlew :core-libretro:compileLogBridge --no-daemon
+
+      # Full verification needs the cores downloaded locally; CI does just
+      # the compile path so we catch FFM binding regressions without burning
+      # bandwidth on the buildbot per push.
+      - name: Compile core-libretro JVM
+        run: ./gradlew :core-libretro:compileKotlinDesktop --no-daemon
+
+  #--------------------------------------------------------------------
+  # iOS framework link (verifies the K/N bridge + cinterop headers).
+  # Doesn't produce a shippable .ipa — that needs code signing secrets.
+  #--------------------------------------------------------------------
+  ios-framework:
+    name: iOS framework link
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-ios-${{ hashFiles('**/*.gradle*', 'gradle/libs.versions.toml') }}
+
+      # MoltenVK + libretro cores are needed for full HW render support but
+      # the framework link itself succeeds without them. Skip the heavy
+      # setup in CI; document it for local builds.
+      - name: Link iOS framework (simulator, debug)
+        run: ./gradlew :ui-shared:linkDebugFrameworkIosSimulatorArm64 --no-daemon

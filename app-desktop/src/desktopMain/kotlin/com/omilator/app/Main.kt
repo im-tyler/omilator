@@ -63,28 +63,28 @@ fun main() = application {
 
     val configDir = remember { defaultConfigDir() }
     val settingsPath = remember { File(configDir, "settings.json").absolutePath }
+    val settingsStore = remember {
+        SettingsStore(
+            readText = { path -> File(path).takeIf { it.exists() }?.readText() },
+            writeText = { path, content -> File(path).writeText(content) },
+        )
+    }
     val coresDir = remember { File(configDir, "cores") }
     val libraryViewModel = remember {
         LibraryViewModel(
             repository = LibraryRepository(JvmLibraryScanner()),
-            settingsStore = SettingsStore(
-                readText = { path -> File(path).takeIf { it.exists() }?.readText() },
-                writeText = { path, content -> File(path).writeText(content) },
-            ),
+            settingsStore = settingsStore,
             settingsPath = settingsPath,
         )
     }
-    val settingsViewModel = remember { SettingsViewModel() }
+    val settingsViewModel = remember { SettingsViewModel(settingsStore, settingsPath) }
 
     // Load persisted settings on startup
     kotlinx.coroutines.runBlocking {
-        val store = SettingsStore(
-            readText = { path -> File(path).takeIf { it.exists() }?.readText() },
-            writeText = { path, content -> File(path).writeText(content) },
-        )
-        val settings = store.loadAppSettings(settingsPath)
+        val settings = settingsStore.loadAppSettings(settingsPath)
         settingsViewModel.setTheme(settings.theme)
         settingsViewModel.setTheGamesDbApiKey(settings.theGamesDbApiKey)
+        settingsViewModel.setDirectories(settings.libraryDirectories)
     }
 
     // ---- First-run auto-setup: download missing cores + emulators ----
