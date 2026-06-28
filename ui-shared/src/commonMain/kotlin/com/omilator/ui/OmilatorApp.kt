@@ -74,6 +74,8 @@ fun OmilatorApp(
                     cardMinSize = 130,
                     onSettings = { destination = OmilatorDestination.SETTINGS },
                     showTitle = false,
+                    showRefresh = !singleScreen,
+                    showQuickPlay = !singleScreen,
                 )
             } else {
                 SettingsScreen(

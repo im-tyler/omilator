@@ -67,56 +67,40 @@ fun LibraryScreen(
     cardMinSize: Int = 180,
     onSettings: () -> Unit = {},
     showTitle: Boolean = true,
+    showRefresh: Boolean = true,
+    showQuickPlay: Boolean = true,
 ) {
     val state by viewModel.state.collectAsState()
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Header bar — large title + actions
             TopAppBar(
-                title = {
-                    if (showTitle) {
-                        Text(
-                            "Library",
-                            style = MaterialTheme.typography.headlineLarge,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                },
-                actions = {
+                title = { if (showTitle) Text("", style = MaterialTheme.typography.headlineLarge) },
+                navigationIcon = {
                     if (onSettings != {}) {
                         IconButton(onClick = onSettings) {
                             Icon(Icons.Rounded.Settings, contentDescription = "Settings")
                         }
                     }
-                    if (showStandalone) {
-                        TextButton(onClick = onLaunchStandalone) { Text("Standalone") }
+                },
+                actions = {
+                    if (showQuickPlay) {
+                        IconButton(onClick = onQuickPlay) {
+                            Icon(Icons.Rounded.PlayArrow, contentDescription = "Open ROM")
+                        }
                     }
-                    IconButton(onClick = onQuickPlay) {
-                        Icon(Icons.Rounded.PlayArrow, contentDescription = "Open ROM file")
-                    }
-                    IconButton(onClick = { viewModel.rescan() }) {
-                        Icon(Icons.Rounded.Refresh, contentDescription = "Rescan")
+                    if (showRefresh) {
+                        IconButton(onClick = { viewModel.rescan() }) {
+                            Icon(Icons.Rounded.Refresh, contentDescription = "Rescan")
+                        }
                     }
                     IconButton(onClick = onAddDirectory) {
-                        Icon(Icons.Rounded.Add, contentDescription = "Add directory")
+                        Icon(Icons.Rounded.Add, contentDescription = "Add")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                ),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )
 
-            // Spotlight-style search pill
-            SearchPill(
-                query = state.searchQuery,
-                onQueryChange = viewModel::setSearch,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 4.dp),
-            )
-
-            // System filter chips — modern pill style
             if (state.availableSystems.isNotEmpty()) {
                 SystemFilterRow(
                     systems = state.availableSystems,
@@ -126,12 +110,7 @@ fun LibraryScreen(
             }
 
             state.error?.let { err ->
-                Text(
-                    "Scan error: $err",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                )
+                Text("Error: $err", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
             }
 
             when {
