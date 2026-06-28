@@ -67,10 +67,17 @@ internal val audioSampleCb = staticCFunction { left: Int, right: Int ->
 internal val inputPollCb = staticCFunction { _: Int -> }
 
 internal val inputStateCb = staticCFunction { port: Int, device: Int, index: Int, id: Int ->
-    val ctrl = nativeControllerInstance ?: return@staticCFunction 0.toShort()
-    if (port != 0 || device != 1) return@staticCFunction 0.toShort()
-    val src = ctrl.inputSource ?: return@staticCFunction 0.toShort()
-    src.poll(port, InputDevice.JOYPAD, index, id).toShort()
+    if (port == 0 && device == 1) {
+        val ctrl = nativeControllerInstance
+        val src = ctrl?.inputSource
+        if (src != null) {
+            src.poll(port, InputDevice.JOYPAD, index, id).toShort()
+        } else {
+            0.toShort()
+        }
+    } else {
+        0.toShort()
+    }
 }
 
 internal class NativeCoreController : CoreController {

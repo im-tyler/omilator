@@ -32,6 +32,8 @@ import com.omilator.core.libretro.api.Framebuffer
 import com.omilator.core.libretro.api.PixelFormat
 import com.omilator.core.libretro.createCoreController
 import com.omilator.core.audio.AudioOutput
+import com.omilator.core.audio.IosAudioOutput
+import com.omilator.ui.player.TouchControls
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -50,6 +52,7 @@ fun IosPlayerScreen(romPath: String, corePath: String) {
 
     val scope = remember { CoroutineScope(Dispatchers.Default) }
     val controller = remember { createCoreController("") }
+    val audioOutput = remember { com.omilator.core.audio.IosAudioOutput() }
 
     remember {
         scope.launch {
@@ -59,12 +62,17 @@ fun IosPlayerScreen(romPath: String, corePath: String) {
                 frameW = avInfo.geometry.baseWidth.toInt()
                 frameH = avInfo.geometry.baseHeight.toInt()
 
+                // Configure audio output
+                audioOutput.configure(avInfo.timing.sampleRate, channels = 2)
+
                 val latestFrame = arrayOfNulls<Framebuffer>(1)
 
                 controller.attach(
                     video = { fb -> latestFrame[0] = fb },
-                    audio = { _ -> },
-                    input = { _, _, _, _ -> 0 },
+                    audio = { samples -> audioOutput.write(samples) },
+                    input = { _, _, _, id ->
+                        com.omilator.core.input.IosInputState.isPressed(id)
+                    },
                 )
 
                 isLoading = false
@@ -89,6 +97,8 @@ fun IosPlayerScreen(romPath: String, corePath: String) {
             } catch (e: Exception) {
                 error = e.message ?: e::class.simpleName
                 isLoading = false
+            } finally {
+                audioOutput.release()
             }
         }
         true
@@ -140,6 +150,17 @@ fun IosPlayerScreen(romPath: String, corePath: String) {
                         dstSize = IntSize(drawW, drawH),
                     )
                 }
+
+                // Touch controls overlay — only show when game is running
+                TouchControls(
+                    onPress = { btn ->
+                        com.omilator.core.input.IosInputState.setButton(btn, true)
+                    },
+                    onRelease = { btn ->
+                        com.omilator.core.input.IosInputState.setButton(btn, false)
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
             else -> Text("Waiting for frames...", color = Color.White)
         }
