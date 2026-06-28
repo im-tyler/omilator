@@ -4,13 +4,16 @@ package com.omilator.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.Button
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -21,9 +24,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -31,16 +42,12 @@ import com.omilator.core.libretro.api.CoreController
 import com.omilator.core.libretro.api.Framebuffer
 import com.omilator.core.libretro.api.PixelFormat
 import com.omilator.core.libretro.createCoreController
-import com.omilator.core.audio.AudioOutput
 import com.omilator.core.audio.IosAudioOutput
-import com.omilator.ui.player.TouchControls
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import platform.posix.clock
-import platform.posix.CLOCKS_PER_SEC
+import kotlin.math.hypot
 
 @Composable
 fun IosPlayerScreen(romPath: String, corePath: String) {
@@ -52,7 +59,10 @@ fun IosPlayerScreen(romPath: String, corePath: String) {
 
     val scope = remember { CoroutineScope(Dispatchers.Default) }
     val controller = remember { createCoreController("") }
-    val audioOutput = remember { com.omilator.core.audio.IosAudioOutput() }
+    val audioOutput = remember { IosAudioOutput() }
+
+    // Touch input state
+    val buttonStates = remember { mutableMapOf<Int, Boolean>() }
 
     remember {
         scope.launch {
@@ -61,22 +71,18 @@ fun IosPlayerScreen(romPath: String, corePath: String) {
                 val avInfo = controller.loadGame(romPath)
                 frameW = avInfo.geometry.baseWidth.toInt()
                 frameH = avInfo.geometry.baseHeight.toInt()
-
-                // Configure audio output
                 audioOutput.configure(avInfo.timing.sampleRate, channels = 2)
 
                 val latestFrame = arrayOfNulls<Framebuffer>(1)
-
                 controller.attach(
                     video = { fb -> latestFrame[0] = fb },
                     audio = { samples -> audioOutput.write(samples) },
                     input = { _, _, _, id ->
-                        com.omilator.core.input.IosInputState.isPressed(id)
+                        if (buttonStates[id] == true) 1 else 0
                     },
                 )
 
                 isLoading = false
-
                 val intervalMs = (1000.0 / avInfo.timing.fps).toLong()
                 while (true) {
                     controller.runFrame()
@@ -104,68 +110,201 @@ fun IosPlayerScreen(romPath: String, corePath: String) {
         true
     }
 
-    Box(
-        modifier = Modifier.fillMaxSize().background(Color.Black),
-        contentAlignment = Alignment.Center,
-    ) {
+    Column(modifier = Modifier.fillMaxSize().background(Color(0xFF1A1A2E))) {
         when {
             error != null -> {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(24.dp),
-                ) {
-                    Button(onClick = {
-                        platform.UIKit.UIPasteboard.generalPasteboard().string = "$error\nCore: $corePath\nROM: $romPath"
-                    }) { Text("Copy Error") }
-                    Spacer(Modifier.height(16.dp))
-                    Text("Error", color = Color.White, style = MaterialTheme.typography.titleLarge)
-                    Spacer(Modifier.height(8.dp))
-                    Text(error!!, color = Color(0xFFFF6B6B), style = MaterialTheme.typography.bodySmall)
-                    Spacer(Modifier.height(4.dp))
-                    Text("Core: $corePath", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
-                    Text("ROM: $romPath", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
+                        Button(onClick = {
+                            platform.UIKit.UIPasteboard.generalPasteboard().string = "$error\nCore: $corePath\nROM: $romPath"
+                        }) { Text("Copy Error") }
+                        Spacer(Modifier.height(16.dp))
+                        Text(error!!, color = Color(0xFFFF6B6B), style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
             isLoading -> {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator()
-                    Text("Loading...", color = Color.White, modifier = Modifier.padding(top = 8.dp))
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator()
+                        Text("Loading...", color = Color.White, modifier = Modifier.padding(top = 8.dp))
+                    }
                 }
             }
-            argbPixels != null && frameW > 0 && frameH > 0 -> {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val pixels = argbPixels!!
-                    val scaleX = size.width / frameW
-                    val scaleY = size.height / frameH
-                    val scale = minOf(scaleX, scaleY)
-                    val drawW = (frameW * scale).toInt()
-                    val drawH = (frameH * scale).toInt()
-                    val dx = ((size.width - drawW) / 2f).toInt()
-                    val dy = ((size.height - drawH) / 2f).toInt()
-                    drawImage(
-                        image = createImageBitmap(pixels, frameW, frameH),
-                        srcOffset = IntOffset.Zero,
-                        srcSize = IntSize(frameW, frameH),
-                        dstOffset = IntOffset(dx, dy),
-                        dstSize = IntSize(drawW, drawH),
-                    )
+            else -> {
+                // === SCREEN AREA (top ~55%) ===
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(horizontal = 12.dp, vertical = 16.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.Black),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val pixels = argbPixels
+                    if (pixels != null && frameW > 0 && frameH > 0) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val scaleX = size.width / frameW
+                            val scaleY = size.height / frameH
+                            val scale = minOf(scaleX, scaleY)
+                            val drawW = (frameW * scale).toInt()
+                            val drawH = (frameH * scale).toInt()
+                            val dx = ((size.width - drawW) / 2f).toInt()
+                            val dy = ((size.height - drawH) / 2f).toInt()
+                            drawImage(
+                                image = createImageBitmap(pixels, frameW, frameH),
+                                srcOffset = IntOffset.Zero,
+                                srcSize = IntSize(frameW, frameH),
+                                dstOffset = IntOffset(dx, dy),
+                                dstSize = IntSize(drawW, drawH),
+                            )
+                        }
+                    }
                 }
 
-                // Touch controls overlay — only show when game is running
-                TouchControls(
-                    onPress = { btn ->
-                        com.omilator.core.input.IosInputState.setButton(btn, true)
-                    },
-                    onRelease = { btn ->
-                        com.omilator.core.input.IosInputState.setButton(btn, false)
-                    },
-                    modifier = Modifier.fillMaxSize(),
+                // === CONTROLLER AREA (bottom ~45%) ===
+                HandheldController(
+                    buttonStates = buttonStates,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(280.dp)
+                        .background(Color(0xFF16162A)),
                 )
             }
-            else -> Text("Waiting for frames...", color = Color.White)
         }
     }
 }
+
+@Composable
+private fun HandheldController(
+    buttonStates: MutableMap<Int, Boolean>,
+    modifier: Modifier = Modifier,
+) {
+    // Layout the controller as a canvas with touch zones
+
+    Canvas(
+        modifier = modifier
+            .fillMaxWidth()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Main)
+                        for (change in event.changes) {
+                            val x = change.position.x
+                            val y = change.position.y
+                            val w = size.width.toFloat()
+                            val h = size.height.toFloat()
+
+                            if (change.pressed && !change.previousPressed) {
+                                // Press down
+                                val btn = hitTestController(x, y, w, h)
+                                if (btn != null) {
+                                    buttonStates[btn] = true
+                                }
+                            } else if (!change.pressed && change.previousPressed) {
+                                // Release
+                                val btn = hitTestController(change.previousPosition.x, change.previousPosition.y, w, h)
+                                if (btn != null) {
+                                    buttonStates[btn] = false
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+    ) {
+        drawController(size.width, size.height)
+    }
+}
+
+private fun hitTestController(x: Float, y: Float, w: Float, h: Float): Int? {
+    val s = w * 0.055f
+
+    // D-pad cross zones
+    val dcx = w * 0.22f
+    val dcy = h * 0.45f
+
+    // Up
+    if (x > dcx - s && x < dcx + s && y > dcy - s * 2.5f && y < dcy - s * 0.3f) return 4
+    // Down
+    if (x > dcx - s && x < dcx + s && y > dcy + s * 0.3f && y < dcy + s * 2.5f) return 5
+    // Left
+    if (x > dcx - s * 2.5f && x < dcx - s * 0.3f && y > dcy - s && y < dcy + s) return 6
+    // Right
+    if (x > dcx + s * 0.3f && x < dcx + s * 2.5f && y > dcy - s && y < dcy + s) return 7
+
+    // A button
+    if (hypot(x - w * 0.78f, y - h * 0.35f) < s * 1.3f) return 8
+    // B button
+    if (hypot(x - w * 0.65f, y - h * 0.55f) < s * 1.3f) return 0
+
+    // Start
+    if (hypot(x - w * 0.58f, y - h * 0.85f) < s * 0.9f) return 3
+    // Select
+    if (hypot(x - w * 0.42f, y - h * 0.85f) < s * 0.9f) return 2
+
+    return null
+}
+
+private fun DrawScope.drawController(w: Float, h: Float) {
+    val fill = Color.White.copy(alpha = 0.18f)
+    val border = Color.White.copy(alpha = 0.40f)
+    val sw = 2.5f
+    val s = w * 0.055f
+
+    val dcx = w * 0.22f
+    val dcy = h * 0.45f
+
+    // === D-PAD: rounded rectangle cross ===
+    val padW = s * 1.8f
+    val padH = s * 1.1f
+    val cr = 6f
+
+    // Up arm
+    drawRoundRect(fill, Offset(dcx - padH / 2, dcy - padW - s * 0.15f), Size(padH, padW), androidx.compose.ui.geometry.CornerRadius(cr, cr))
+    drawRoundRect(border, Offset(dcx - padH / 2, dcy - padW - s * 0.15f), Size(padH, padW), androidx.compose.ui.geometry.CornerRadius(cr, cr), Stroke(sw))
+
+    // Down arm
+    drawRoundRect(fill, Offset(dcx - padH / 2, dcy + s * 0.15f), Size(padH, padW), androidx.compose.ui.geometry.CornerRadius(cr, cr))
+    drawRoundRect(border, Offset(dcx - padH / 2, dcy + s * 0.15f), Size(padH, padW), androidx.compose.ui.geometry.CornerRadius(cr, cr), Stroke(sw))
+
+    // Left arm
+    drawRoundRect(fill, Offset(dcx - padW - s * 0.15f, dcy - padH / 2), Size(padW, padH), androidx.compose.ui.geometry.CornerRadius(cr, cr))
+    drawRoundRect(border, Offset(dcx - padW - s * 0.15f, dcy - padH / 2), Size(padW, padH), androidx.compose.ui.geometry.CornerRadius(cr, cr), Stroke(sw))
+
+    // Right arm
+    drawRoundRect(fill, Offset(dcx + s * 0.15f, dcy - padH / 2), Size(padW, padH), androidx.compose.ui.geometry.CornerRadius(cr, cr))
+    drawRoundRect(border, Offset(dcx + s * 0.15f, dcy - padH / 2), Size(padW, padH), androidx.compose.ui.geometry.CornerRadius(cr, cr), Stroke(sw))
+
+    // Center hub
+    drawRoundRect(
+        Color.White.copy(alpha = 0.28f),
+        Offset(dcx - padH / 2, dcy - padH / 2),
+        Size(padH, padH),
+        androidx.compose.ui.geometry.CornerRadius(4f, 4f),
+    )
+
+    // === A / B BUTTONS (diagonal arrangement like real GB) ===
+    val aCx = w * 0.78f
+    val aCy = h * 0.35f
+    val bCx = w * 0.65f
+    val bCy = h * 0.55f
+
+    // A
+    drawCircle(Color(0xFF4A6FA5).copy(alpha = 0.6f), s * 1.2f, Offset(aCx, aCy), style = Fill)
+    drawCircle(border, s * 1.2f, Offset(aCx, aCy), style = Stroke(sw))
+
+    // B
+    drawCircle(Color(0xFFB23A48).copy(alpha = 0.6f), s * 1.2f, Offset(bCx, bCy), style = Fill)
+    drawCircle(border, s * 1.2f, Offset(bCx, bCy), style = Stroke(sw))
+
+    // === START / SELECT (pill shapes, center-bottom) ===
+    drawCircle(Color.White.copy(alpha = 0.15f), s * 0.8f, Offset(w * 0.58f, h * 0.85f))
+    drawCircle(Color.White.copy(alpha = 0.15f), s * 0.8f, Offset(w * 0.42f, h * 0.85f))
+}
+
+// === Frame conversion helpers (unchanged) ===
 
 private fun convertToArgb(bytes: ByteArray, width: Int, height: Int, pitch: Int, format: PixelFormat): IntArray? {
     if (width <= 0 || height <= 0) return null
@@ -202,14 +341,13 @@ private fun convertToArgb(bytes: ByteArray, width: Int, height: Int, pitch: Int,
 }
 
 private fun createImageBitmap(argb: IntArray, width: Int, height: Int): ImageBitmap {
-    // Convert IntArray to ByteArray in ARGB byte order for Skia
     val bytes = ByteArray(argb.size * 4)
     for (i in argb.indices) {
         val v = argb[i]
-        bytes[i * 4] = (v and 0xFF).toByte()         // B
-        bytes[i * 4 + 1] = ((v shr 8) and 0xFF).toByte()  // G
-        bytes[i * 4 + 2] = ((v shr 16) and 0xFF).toByte() // R
-        bytes[i * 4 + 3] = ((v shr 24) and 0xFF).toByte() // A
+        bytes[i * 4] = (v and 0xFF).toByte()
+        bytes[i * 4 + 1] = ((v shr 8) and 0xFF).toByte()
+        bytes[i * 4 + 2] = ((v shr 16) and 0xFF).toByte()
+        bytes[i * 4 + 3] = ((v shr 24) and 0xFF).toByte()
     }
     val image = org.jetbrains.skia.Image.makeRaster(
         org.jetbrains.skia.ImageInfo.makeN32Premul(width, height),
