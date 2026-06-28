@@ -4,7 +4,6 @@ package com.omilator.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -25,20 +24,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Fill
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import com.omilator.core.libretro.api.CoreController
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import com.omilator.core.libretro.api.Framebuffer
 import com.omilator.core.libretro.api.PixelFormat
 import com.omilator.core.libretro.createCoreController
@@ -60,8 +58,6 @@ fun IosPlayerScreen(romPath: String, corePath: String) {
     val scope = remember { CoroutineScope(Dispatchers.Default) }
     val controller = remember { createCoreController("") }
     val audioOutput = remember { IosAudioOutput() }
-
-    // Touch input state
     val buttonStates = remember { mutableMapOf<Int, Boolean>() }
 
     remember {
@@ -72,26 +68,19 @@ fun IosPlayerScreen(romPath: String, corePath: String) {
                 frameW = avInfo.geometry.baseWidth.toInt()
                 frameH = avInfo.geometry.baseHeight.toInt()
                 audioOutput.configure(avInfo.timing.sampleRate, channels = 2)
-
                 val latestFrame = arrayOfNulls<Framebuffer>(1)
                 controller.attach(
                     video = { fb -> latestFrame[0] = fb },
                     audio = { samples -> audioOutput.write(samples) },
-                    input = { _, _, _, id ->
-                        if (buttonStates[id] == true) 1 else 0
-                    },
+                    input = { _, _, _, id -> if (buttonStates[id] == true) 1 else 0 },
                 )
-
                 isLoading = false
                 val intervalMs = (1000.0 / avInfo.timing.fps).toLong()
                 while (true) {
                     controller.runFrame()
-                    val fb = latestFrame[0]
-                    if (fb != null) {
-                        val bytes = fb.data as? ByteArray
-                        if (bytes != null) {
-                            val converted = convertToArgb(bytes, fb.width.toInt(), fb.height.toInt(), fb.pitch.toInt(), fb.format)
-                            if (converted != null) {
+                    latestFrame[0]?.let { fb ->
+                        (fb.data as? ByteArray)?.let { bytes ->
+                            convertToArgb(bytes, fb.width.toInt(), fb.height.toInt(), fb.pitch.toInt(), fb.format)?.let { converted ->
                                 argbPixels = converted
                                 frameW = fb.width.toInt()
                                 frameH = fb.height.toInt()
@@ -110,66 +99,50 @@ fun IosPlayerScreen(romPath: String, corePath: String) {
         true
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(Color(0xFF1A1A2E))) {
+    Column(modifier = Modifier.fillMaxSize().background(Color(0xFF0D0D12))) {
         when {
-            error != null -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
-                        Button(onClick = {
-                            platform.UIKit.UIPasteboard.generalPasteboard().string = "$error\nCore: $corePath\nROM: $romPath"
-                        }) { Text("Copy Error") }
-                        Spacer(Modifier.height(16.dp))
-                        Text(error!!, color = Color(0xFFFF6B6B), style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-            isLoading -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator()
-                        Text("Loading...", color = Color.White, modifier = Modifier.padding(top = 8.dp))
-                    }
-                }
-            }
+            error != null -> ErrorView(error!!, corePath, romPath)
+            isLoading -> LoadingView()
             else -> {
-                // === SCREEN AREA (top ~55%) ===
+                // === SCREEN (top 55%) ===
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
-                        .padding(horizontal = 12.dp, vertical = 16.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color.Black),
+                        .padding(16.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    val pixels = argbPixels
-                    if (pixels != null && frameW > 0 && frameH > 0) {
-                        Canvas(modifier = Modifier.fillMaxSize()) {
-                            val scaleX = size.width / frameW
-                            val scaleY = size.height / frameH
-                            val scale = minOf(scaleX, scaleY)
-                            val drawW = (frameW * scale).toInt()
-                            val drawH = (frameH * scale).toInt()
-                            val dx = ((size.width - drawW) / 2f).toInt()
-                            val dy = ((size.height - drawH) / 2f).toInt()
-                            drawImage(
-                                image = createImageBitmap(pixels, frameW, frameH),
-                                srcOffset = IntOffset.Zero,
-                                srcSize = IntSize(frameW, frameH),
-                                dstOffset = IntOffset(dx, dy),
-                                dstSize = IntSize(drawW, drawH),
-                            )
+                    Box(
+                        modifier = Modifier
+                            .shadow(8.dp, RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.Black),
+                    ) {
+                        argbPixels?.let { pixels ->
+                            if (frameW > 0 && frameH > 0) {
+                                Canvas(modifier = Modifier.fillMaxSize()) {
+                                    val scale = minOf(size.width / frameW, size.height / frameH)
+                                    val drawW = (frameW * scale).toInt()
+                                    val drawH = (frameH * scale).toInt()
+                                    val dx = ((size.width - drawW) / 2f).toInt()
+                                    val dy = ((size.height - drawH) / 2f).toInt()
+                                    drawImage(
+                                        image = createImageBitmap(pixels, frameW, frameH),
+                                        srcOffset = IntOffset.Zero,
+                                        srcSize = IntSize(frameW, frameH),
+                                        dstOffset = IntOffset(dx, dy),
+                                        dstSize = IntSize(drawW, drawH),
+                                    )
+                                }
+                            }
                         }
                     }
                 }
 
-                // === CONTROLLER AREA (bottom ~45%) ===
-                HandheldController(
+                // === CONTROLLER (bottom 45%) ===
+                Controller3D(
                     buttonStates = buttonStates,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(280.dp)
-                        .background(Color(0xFF16162A)),
+                    modifier = Modifier.fillMaxWidth().height(300.dp),
                 )
             }
         }
@@ -177,35 +150,27 @@ fun IosPlayerScreen(romPath: String, corePath: String) {
 }
 
 @Composable
-private fun HandheldController(
+private fun Controller3D(
     buttonStates: MutableMap<Int, Boolean>,
     modifier: Modifier = Modifier,
 ) {
-    // Layout the controller as a canvas with touch zones
-
     Canvas(
         modifier = modifier
             .fillMaxWidth()
+            .background(Color(0xFF1A1A24))
             .pointerInput(Unit) {
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Main)
                         for (change in event.changes) {
-                            val x = change.position.x
-                            val y = change.position.y
                             val w = size.width.toFloat()
                             val h = size.height.toFloat()
-
                             if (change.pressed && !change.previousPressed) {
-                                // Press down
-                                val btn = hitTestController(x, y, w, h)
-                                if (btn != null) {
+                                hitTest(change.position.x, change.position.y, w, h)?.let { btn ->
                                     buttonStates[btn] = true
                                 }
                             } else if (!change.pressed && change.previousPressed) {
-                                // Release
-                                val btn = hitTestController(change.previousPosition.x, change.previousPosition.y, w, h)
-                                if (btn != null) {
+                                hitTest(change.previousPosition.x, change.previousPosition.y, w, h)?.let { btn ->
                                     buttonStates[btn] = false
                                 }
                             }
@@ -214,97 +179,222 @@ private fun HandheldController(
                 }
             }
     ) {
-        drawController(size.width, size.height)
+        drawController3D(size.width, size.height)
     }
 }
 
-private fun hitTestController(x: Float, y: Float, w: Float, h: Float): Int? {
-    val s = w * 0.055f
+// === HIT TESTING ===
 
-    // D-pad cross zones
-    val dcx = w * 0.22f
-    val dcy = h * 0.45f
-
-    // Up
-    if (x > dcx - s && x < dcx + s && y > dcy - s * 2.5f && y < dcy - s * 0.3f) return 4
-    // Down
-    if (x > dcx - s && x < dcx + s && y > dcy + s * 0.3f && y < dcy + s * 2.5f) return 5
-    // Left
-    if (x > dcx - s * 2.5f && x < dcx - s * 0.3f && y > dcy - s && y < dcy + s) return 6
-    // Right
-    if (x > dcx + s * 0.3f && x < dcx + s * 2.5f && y > dcy - s && y < dcy + s) return 7
-
-    // A button
-    if (hypot(x - w * 0.78f, y - h * 0.35f) < s * 1.3f) return 8
-    // B button
-    if (hypot(x - w * 0.65f, y - h * 0.55f) < s * 1.3f) return 0
-
-    // Start
-    if (hypot(x - w * 0.58f, y - h * 0.85f) < s * 0.9f) return 3
-    // Select
-    if (hypot(x - w * 0.42f, y - h * 0.85f) < s * 0.9f) return 2
-
+private fun hitTest(x: Float, y: Float, w: Float, h: Float): Int? {
+    val s = w * 0.05f
+    // D-pad
+    val dcx = w * 0.24f
+    val dcy = h * 0.42f
+    if (x > dcx - s && x < dcx + s && y > dcy - s * 3 && y < dcy - s * 0.3f) return 4 // UP
+    if (x > dcx - s && x < dcx + s && y > dcy + s * 0.3f && y < dcy + s * 3) return 5 // DOWN
+    if (x > dcx - s * 3 && x < dcx - s * 0.3f && y > dcy - s && y < dcy + s) return 6 // LEFT
+    if (x > dcx + s * 0.3f && x < dcx + s * 3 && y > dcy - s && y < dcy + s) return 7 // RIGHT
+    // A / B
+    if (hypot(x - w * 0.80f, y - h * 0.30f) < s * 1.6f) return 8 // A
+    if (hypot(x - w * 0.66f, y - h * 0.52f) < s * 1.6f) return 0 // B
+    // Start / Select
+    if (hypot(x - w * 0.58f, y - h * 0.88f) < s * 1.0f) return 3 // START
+    if (hypot(x - w * 0.42f, y - h * 0.88f) < s * 1.0f) return 2 // SELECT
     return null
 }
 
-private fun DrawScope.drawController(w: Float, h: Float) {
-    val fill = Color.White.copy(alpha = 0.18f)
-    val border = Color.White.copy(alpha = 0.40f)
-    val sw = 2.5f
-    val s = w * 0.055f
+// === 3D DRAWING ===
 
-    val dcx = w * 0.22f
-    val dcy = h * 0.45f
+private fun DrawScope.drawController3D(w: Float, h: Float) {
+    val s = w * 0.05f
 
-    // === D-PAD: rounded rectangle cross ===
-    val padW = s * 1.8f
-    val padH = s * 1.1f
-    val cr = 6f
+    // === D-PAD ===
+    val dcx = w * 0.24f
+    val dcy = h * 0.42f
+    drawDpad3D(dcx, dcy, s)
 
-    // Up arm
-    drawRoundRect(fill, Offset(dcx - padH / 2, dcy - padW - s * 0.15f), Size(padH, padW), androidx.compose.ui.geometry.CornerRadius(cr, cr))
-    drawRoundRect(border, Offset(dcx - padH / 2, dcy - padW - s * 0.15f), Size(padH, padW), androidx.compose.ui.geometry.CornerRadius(cr, cr), Stroke(sw))
+    // === A BUTTON (blue dome) ===
+    drawButton3D(w * 0.80f, h * 0.30f, s * 1.5f, Color(0xFF2D6BD3), Color(0xFF5B9BF5))
 
-    // Down arm
-    drawRoundRect(fill, Offset(dcx - padH / 2, dcy + s * 0.15f), Size(padH, padW), androidx.compose.ui.geometry.CornerRadius(cr, cr))
-    drawRoundRect(border, Offset(dcx - padH / 2, dcy + s * 0.15f), Size(padH, padW), androidx.compose.ui.geometry.CornerRadius(cr, cr), Stroke(sw))
+    // === B BUTTON (red dome) ===
+    drawButton3D(w * 0.66f, h * 0.52f, s * 1.5f, Color(0xFFC42B3C), Color(0xFFE85060))
 
-    // Left arm
-    drawRoundRect(fill, Offset(dcx - padW - s * 0.15f, dcy - padH / 2), Size(padW, padH), androidx.compose.ui.geometry.CornerRadius(cr, cr))
-    drawRoundRect(border, Offset(dcx - padW - s * 0.15f, dcy - padH / 2), Size(padW, padH), androidx.compose.ui.geometry.CornerRadius(cr, cr), Stroke(sw))
-
-    // Right arm
-    drawRoundRect(fill, Offset(dcx + s * 0.15f, dcy - padH / 2), Size(padW, padH), androidx.compose.ui.geometry.CornerRadius(cr, cr))
-    drawRoundRect(border, Offset(dcx + s * 0.15f, dcy - padH / 2), Size(padW, padH), androidx.compose.ui.geometry.CornerRadius(cr, cr), Stroke(sw))
-
-    // Center hub
-    drawRoundRect(
-        Color.White.copy(alpha = 0.28f),
-        Offset(dcx - padH / 2, dcy - padH / 2),
-        Size(padH, padH),
-        androidx.compose.ui.geometry.CornerRadius(4f, 4f),
-    )
-
-    // === A / B BUTTONS (diagonal arrangement like real GB) ===
-    val aCx = w * 0.78f
-    val aCy = h * 0.35f
-    val bCx = w * 0.65f
-    val bCy = h * 0.55f
-
-    // A
-    drawCircle(Color(0xFF4A6FA5).copy(alpha = 0.6f), s * 1.2f, Offset(aCx, aCy), style = Fill)
-    drawCircle(border, s * 1.2f, Offset(aCx, aCy), style = Stroke(sw))
-
-    // B
-    drawCircle(Color(0xFFB23A48).copy(alpha = 0.6f), s * 1.2f, Offset(bCx, bCy), style = Fill)
-    drawCircle(border, s * 1.2f, Offset(bCx, bCy), style = Stroke(sw))
-
-    // === START / SELECT (pill shapes, center-bottom) ===
-    drawCircle(Color.White.copy(alpha = 0.15f), s * 0.8f, Offset(w * 0.58f, h * 0.85f))
-    drawCircle(Color.White.copy(alpha = 0.15f), s * 0.8f, Offset(w * 0.42f, h * 0.85f))
+    // === START / SELECT (dark pills) ===
+    drawPill3D(w * 0.58f, h * 0.88f, s * 0.9f)
+    drawPill3D(w * 0.42f, h * 0.88f, s * 0.9f)
 }
 
-// === Frame conversion helpers (unchanged) ===
+private fun DrawScope.drawDpad3D(cx: Float, cy: Float, s: Float) {
+    val dark = Color(0xFF2A2A35)
+    val mid = Color(0xFF3A3A48)
+    val light = Color(0xFF4A4A5C)
+    val highlight = Color(0xFF5A5A70)
+    val armW = s * 1.4f
+    val armH = s * 0.9f
+    val cr = 8f
+
+    // Shadow (offset down-right)
+    for (arm in listOf(
+        Triple(cx - armH / 2, cy - armW - s * 0.1f, false), // up
+        Triple(cx - armH / 2, cy + s * 0.1f, false),         // down
+        Triple(cx - armW - s * 0.1f, cy - armH / 2, true),   // left
+        Triple(cx + s * 0.1f, cy - armH / 2, true),          // right
+    )) {
+        val (x, y, horizontal) = arm
+        val shadowOffset = 3f
+        drawRoundRect(
+            Color.Black.copy(alpha = 0.35f),
+            Offset(x + shadowOffset, y + shadowOffset),
+            Size(if (horizontal) armW else armH, if (horizontal) armH else armW),
+            androidx.compose.ui.geometry.CornerRadius(cr, cr),
+        )
+    }
+
+    // Base arms with gradient
+    for (arm in listOf(
+        Triple(cx - armH / 2, cy - armW - s * 0.1f, false),
+        Triple(cx - armH / 2, cy + s * 0.1f, false),
+        Triple(cx - armW - s * 0.1f, cy - armH / 2, true),
+        Triple(cx + s * 0.1f, cy - armH / 2, true),
+    )) {
+        val (x, y, horizontal) = arm
+        val armWidth = if (horizontal) armW else armH
+        val armHeight = if (horizontal) armH else armW
+
+        // Base
+        drawRoundRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(light, mid, dark),
+                startY = y,
+                endY = y + armHeight,
+            ),
+            topLeft = Offset(x, y),
+            size = Size(armWidth, armHeight),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr, cr),
+        )
+
+        // Top highlight strip
+        drawRoundRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(highlight.copy(alpha = 0.6f), Color.Transparent),
+                startY = y,
+                endY = y + armHeight * 0.3f,
+            ),
+            topLeft = Offset(x, y),
+            size = Size(armWidth, armHeight * 0.3f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr, cr),
+        )
+    }
+
+    // Center hub
+    drawCircle(dark, armH * 0.55f, Offset(cx, cy))
+    drawCircle(
+        Brush.radialGradient(
+            colors = listOf(highlight.copy(alpha = 0.5f), Color.Transparent),
+            center = Offset(cx - 2f, cy - 2f),
+            radius = armH * 0.4f,
+        ),
+        armH * 0.4f,
+        Offset(cx - 2f, cy - 2f),
+    )
+}
+
+private fun DrawScope.drawButton3D(cx: Float, cy: Float, r: Float, baseColor: Color, lightColor: Color) {
+    // Drop shadow
+    drawCircle(Color.Black.copy(alpha = 0.3f), r, Offset(cx + 2f, cy + 3f))
+
+    // Outer ring (darker rim)
+    drawCircle(baseColor.copy(alpha = 0.5f), r * 1.1f, Offset(cx, cy))
+
+    // Main body with radial gradient (dome effect)
+    drawCircle(
+        Brush.radialGradient(
+            colors = listOf(lightColor, baseColor, baseColor.copy(alpha = 0.7f)),
+            center = Offset(cx - r * 0.3f, cy - r * 0.3f),
+            radius = r * 1.2f,
+        ),
+        r,
+        Offset(cx, cy),
+    )
+
+    // Specular highlight (top-left)
+    drawCircle(
+        Brush.radialGradient(
+            colors = listOf(Color.White.copy(alpha = 0.35f), Color.Transparent),
+            center = Offset(cx - r * 0.35f, cy - r * 0.35f),
+            radius = r * 0.5f,
+        ),
+        r * 0.5f,
+        Offset(cx - r * 0.35f, cy - r * 0.35f),
+    )
+
+    // Bottom inner shadow (gives depth)
+    drawCircle(
+        Brush.radialGradient(
+            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.15f)),
+            center = Offset(cx, cy),
+            radius = r,
+        ),
+        r,
+        Offset(cx, cy),
+    )
+}
+
+private fun DrawScope.drawPill3D(cx: Float, cy: Float, r: Float) {
+    val dark = Color(0xFF2A2A35)
+    val mid = Color(0xFF3D3D4A)
+    val light = Color(0xFF4D4D5E)
+
+    // Shadow
+    drawCircle(Color.Black.copy(alpha = 0.3f), r, Offset(cx + 1f, cy + 2f))
+
+    // Body
+    drawCircle(
+        Brush.radialGradient(
+            colors = listOf(light, mid, dark),
+            center = Offset(cx - r * 0.3f, cy - r * 0.3f),
+            radius = r,
+        ),
+        r,
+        Offset(cx, cy),
+    )
+
+    // Highlight
+    drawCircle(
+        Brush.radialGradient(
+            colors = listOf(Color.White.copy(alpha = 0.25f), Color.Transparent),
+            center = Offset(cx - r * 0.3f, cy - r * 0.3f),
+            radius = r * 0.5f,
+        ),
+        r * 0.5f,
+        Offset(cx - r * 0.3f, cy - r * 0.3f),
+    )
+}
+
+// === HELPERS ===
+
+@Composable
+private fun ErrorView(error: String, corePath: String, romPath: String) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
+            Button(onClick = {
+                platform.UIKit.UIPasteboard.generalPasteboard().string = "$error\nCore: $corePath\nROM: $romPath"
+            }) { Text("Copy Error") }
+            Spacer(Modifier.height(16.dp))
+            Text(error, color = Color(0xFFFF6B6B), style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+private fun LoadingView() {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator()
+            Text("Loading...", color = Color.White, modifier = Modifier.padding(top = 8.dp))
+        }
+    }
+}
 
 private fun convertToArgb(bytes: ByteArray, width: Int, height: Int, pitch: Int, format: PixelFormat): IntArray? {
     if (width <= 0 || height <= 0) return null
@@ -323,10 +413,7 @@ private fun convertToArgb(bytes: ByteArray, width: Int, height: Int, pitch: Int,
                     val r5 = (packed shr 11) and 0x1F
                     val g6 = (packed shr 5) and 0x3F
                     val b5 = packed and 0x1F
-                    val r = (r5 shl 3) or (r5 shr 2)
-                    val g = (g6 shl 2) or (g6 shr 4)
-                    val b = (b5 shl 3) or (b5 shr 2)
-                    (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+                    (0xFF shl 24) or ((r5 shl 3 or (r5 shr 2)) shl 16) or ((g6 shl 2 or (g6 shr 4)) shl 8) or (b5 shl 3 or (b5 shr 2))
                 }
                 PixelFormat.XRGB8888 -> {
                     val b = bytes[src].toInt() and 0xFF
@@ -349,10 +436,9 @@ private fun createImageBitmap(argb: IntArray, width: Int, height: Int): ImageBit
         bytes[i * 4 + 2] = ((v shr 16) and 0xFF).toByte()
         bytes[i * 4 + 3] = ((v shr 24) and 0xFF).toByte()
     }
-    val image = org.jetbrains.skia.Image.makeRaster(
+    return org.jetbrains.skia.Image.makeRaster(
         org.jetbrains.skia.ImageInfo.makeN32Premul(width, height),
         bytes,
-        (width * 4),
-    )
-    return image.toComposeImageBitmap()
+        width * 4,
+    ).toComposeImageBitmap()
 }
