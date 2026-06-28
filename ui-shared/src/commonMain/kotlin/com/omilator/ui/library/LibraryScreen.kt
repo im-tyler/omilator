@@ -1,11 +1,14 @@
 package com.omilator.ui.library
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,6 +21,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -41,7 +45,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,7 +61,7 @@ import com.omilator.data.library.Game
 import com.omilator.data.library.GameSystem
 import androidx.compose.material3.OutlinedTextField
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun LibraryScreen(
     viewModel: LibraryViewModel,
@@ -71,6 +78,15 @@ fun LibraryScreen(
     showQuickPlay: Boolean = true,
 ) {
     val state by viewModel.state.collectAsState()
+
+    // Build pages: "All" + one per available system
+    val pages: List<GameSystem?> = listOf<GameSystem?>(null) + state.availableSystems
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(
+        initialPage = 0,
+        pageCount = { pages.size },
+    )
+    val currentPage by derivedStateOf { pagerState.currentPage }
+    val scope = rememberCoroutineScope()
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -101,23 +117,90 @@ fun LibraryScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )
 
-            if (state.availableSystems.isNotEmpty()) {
-                SystemFilterRow(
-                    systems = state.availableSystems,
-                    selected = state.selectedSystem,
-                    onSelect = viewModel::selectSystem,
-                )
-            }
-
             state.error?.let { err ->
                 Text("Error: $err", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
             }
 
             when {
-                state.isLoading -> LoadingState()
+                state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                }
                 state.games.isEmpty() -> EmptyState(onAddDirectory, onQuickPlay)
-                state.visibleGames.isEmpty() -> NoMatchesState()
-                else -> GridState(state.visibleGames, onOpenGame, onOpenGameSettings, cardMinSize)
+                else -> {
+                    androidx.compose.foundation.pager.HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                    ) { pageIndex ->
+                        val systemFilter = pages.getOrNull(pageIndex)
+                        val pageGames = if (systemFilter != null) {
+                            state.games.filter { it.system == systemFilter }
+                        } else {
+                            state.games
+                        }
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(minSize = cardMinSize.dp),
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 80.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            items(pageGames, key = { it.id }) { game ->
+                                GameCard(
+                                    game = game,
+                                    onClick = { onOpenGame(game.filePath) },
+                                    onOpenSettings = { onOpenGameSettings(game.filePath) },
+                                )
+                            }
+                        }
+                    }
+
+                    // Dot indicator
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        pages.forEachIndexed { index, system ->
+                            val label = if (system == null) "All" else system.shortLabel()
+                            val isSelected = index == currentPage
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 6.dp, vertical = 4.dp)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                    ) {
+                                        scope.launch { pagerState.animateScrollToPage(index) }
+                                    },
+                            ) {
+                                androidx.compose.foundation.layout.Row(
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(end = 4.dp)
+                                            .size(if (isSelected) 8.dp else 6.dp)
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(
+                                                if (isSelected) MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.outlineVariant
+                                            )
+                                    )
+                                    if (isSelected) {
+                                        Text(
+                                            label,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
