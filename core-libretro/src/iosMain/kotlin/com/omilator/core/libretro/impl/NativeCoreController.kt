@@ -62,8 +62,9 @@ internal val audioSampleCb = staticCFunction { left: Int, right: Int ->
     Unit
 }
 
-// Input poll is a no-op — core handles polling via input_state callback
-internal val inputPollCb: COpaquePointer? = null
+// Workaround: staticCFunction with 0 args causes overload ambiguity.
+// Declare with a dummy Int param — arm64 ABI ignores extra callee params.
+internal val inputPollCb = staticCFunction { _: Int -> }
 
 internal val inputStateCb = staticCFunction { port: Int, device: Int, index: Int, id: Int ->
     val ctrl = nativeControllerInstance ?: return@staticCFunction 0.toShort()
@@ -107,9 +108,11 @@ internal class NativeCoreController : CoreController {
         dlsym(h, "retro_init")?.reinterpret<CFunction<() -> Unit>>()?.invoke()
 
         // Set remaining callbacks AFTER init
+        val inputPollPtr: COpaquePointer? = inputPollCb
         dlsym(h, "retro_set_video_refresh")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(videoPtr)
         dlsym(h, "retro_set_audio_sample_batch")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(audioBatchPtr)
         dlsym(h, "retro_set_audio_sample")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(audioSamplePtr)
+        dlsym(h, "retro_set_input_poll")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(inputPollPtr)
         dlsym(h, "retro_set_input_state")?.reinterpret<CFunction<(COpaquePointer?) -> Unit>>()?.invoke(inputStatePtr)
 
         // retro_get_system_info
