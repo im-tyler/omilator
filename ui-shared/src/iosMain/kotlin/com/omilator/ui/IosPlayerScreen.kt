@@ -2,22 +2,32 @@
 
 package com.omilator.ui
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -25,30 +35,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.unit.sp
+import com.omilator.core.audio.IosAudioOutput
 import com.omilator.core.libretro.api.Framebuffer
 import com.omilator.core.libretro.api.PixelFormat
 import com.omilator.core.libretro.createCoreController
-import com.omilator.core.audio.IosAudioOutput
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.math.hypot
 
 @Composable
-fun IosPlayerScreen(romPath: String, corePath: String) {
+fun IosPlayerScreen(romPath: String, corePath: String, onExit: () -> Unit = {}) {
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var argbPixels by remember { mutableStateOf<IntArray?>(null) }
@@ -58,7 +65,7 @@ fun IosPlayerScreen(romPath: String, corePath: String) {
     val scope = remember { CoroutineScope(Dispatchers.Default) }
     val controller = remember { createCoreController("") }
     val audioOutput = remember { IosAudioOutput() }
-    val buttonStates = remember { mutableMapOf<Int, Boolean>() }
+    val buttonStates = remember { mutableStateMapOf<Int, Boolean>() }
 
     remember {
         scope.launch {
@@ -99,28 +106,47 @@ fun IosPlayerScreen(romPath: String, corePath: String) {
         true
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(Color(0xFF0D0D12))) {
+    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0D0D12))) {
         when {
-            error != null -> ErrorView(error!!, corePath, romPath)
-            isLoading -> LoadingView()
-            else -> {
-                // === SCREEN (top 55%) ===
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center,
+            error != null -> {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
                 ) {
+                    Text(error!!, color = Color(0xFFFF6B6B))
+                }
+                ExitButton(onExit)
+            }
+            isLoading -> {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    CircularProgressIndicator()
+                    Spacer(Modifier.height(8.dp))
+                    Text("Loading...", color = Color.White)
+                }
+            }
+            else -> {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // === SCREEN AREA ===
                     Box(
                         modifier = Modifier
-                            .shadow(8.dp, RoundedCornerShape(12.dp))
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color.Black),
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .padding(12.dp),
+                        contentAlignment = Alignment.Center,
                     ) {
                         argbPixels?.let { pixels ->
                             if (frameW > 0 && frameH > 0) {
-                                Canvas(modifier = Modifier.fillMaxSize()) {
+                                androidx.compose.foundation.Canvas(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color.Black)
+                                ) {
                                     val scale = minOf(size.width / frameW, size.height / frameH)
                                     val drawW = (frameW * scale).toInt()
                                     val drawH = (frameH * scale).toInt()
@@ -137,222 +163,231 @@ fun IosPlayerScreen(romPath: String, corePath: String) {
                             }
                         }
                     }
+
+                    // === CONTROLLER AREA ===
+                    ControllerBar(buttonStates)
                 }
 
-                // === CONTROLLER (bottom 45%) ===
-                Controller3D(
-                    buttonStates = buttonStates,
-                    modifier = Modifier.fillMaxWidth().height(300.dp),
-                )
+                // Exit button floating on top-left
+                ExitButton(onExit)
             }
         }
     }
 }
 
 @Composable
-private fun Controller3D(
-    buttonStates: MutableMap<Int, Boolean>,
-    modifier: Modifier = Modifier,
-) {
-    Canvas(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(Color(0xFF1A1A24))
-            .pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent(PointerEventPass.Main)
-                        for (change in event.changes) {
-                            val w = size.width.toFloat()
-                            val h = size.height.toFloat()
-                            if (change.pressed && !change.previousPressed) {
-                                hitTest(change.position.x, change.position.y, w, h)?.let { btn ->
-                                    buttonStates[btn] = true
-                                }
-                            } else if (!change.pressed && change.previousPressed) {
-                                hitTest(change.previousPosition.x, change.previousPosition.y, w, h)?.let { btn ->
-                                    buttonStates[btn] = false
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+private fun ExitButton(onExit: () -> Unit) {
+    IconButton(
+        onClick = onExit,
+        modifier = Modifier
+            .padding(8.dp)
+            .size(36.dp)
+            .clip(CircleShape)
+            .background(Color.Black.copy(alpha = 0.5f)),
+        colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White),
     ) {
-        drawController3D(size.width, size.height)
+        Icon(Icons.Rounded.Close, contentDescription = "Exit", modifier = Modifier.size(20.dp))
     }
 }
 
-// === HIT TESTING ===
+// === CONTROLLER ===
 
-private fun hitTest(x: Float, y: Float, w: Float, h: Float): Int? {
-    val s = w * 0.05f
-    // D-pad
-    val dcx = w * 0.24f
-    val dcy = h * 0.42f
-    if (x > dcx - s && x < dcx + s && y > dcy - s * 3 && y < dcy - s * 0.3f) return 4 // UP
-    if (x > dcx - s && x < dcx + s && y > dcy + s * 0.3f && y < dcy + s * 3) return 5 // DOWN
-    if (x > dcx - s * 3 && x < dcx - s * 0.3f && y > dcy - s && y < dcy + s) return 6 // LEFT
-    if (x > dcx + s * 0.3f && x < dcx + s * 3 && y > dcy - s && y < dcy + s) return 7 // RIGHT
-    // A / B
-    if (hypot(x - w * 0.80f, y - h * 0.30f) < s * 1.6f) return 8 // A
-    if (hypot(x - w * 0.66f, y - h * 0.52f) < s * 1.6f) return 0 // B
-    // Start / Select
-    if (hypot(x - w * 0.58f, y - h * 0.88f) < s * 1.0f) return 3 // START
-    if (hypot(x - w * 0.42f, y - h * 0.88f) < s * 1.0f) return 2 // SELECT
-    return null
+@Composable
+private fun ControllerBar(buttonStates: MutableMap<Int, Boolean>) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(260.dp)
+            .background(Color(0xFF1A1A24))
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // === D-PAD ===
+        DpadSection(buttonStates)
+
+        // === START / SELECT ===
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            SmallButton("SELECT", Color(0xFF48484A), buttonStates, 2)
+            SmallButton("START", Color(0xFF48484A), buttonStates, 3)
+        }
+
+        // === A / B BUTTONS ===
+        Column(
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            ActionButton("A", Color(0xFF5856D6), buttonStates, 8)
+            ActionButton("B", Color(0xFFFF2D55), buttonStates, 0)
+        }
+    }
 }
 
-// === 3D DRAWING ===
-
-private fun DrawScope.drawController3D(w: Float, h: Float) {
-    val s = w * 0.05f
-
-    // === D-PAD ===
-    val dcx = w * 0.24f
-    val dcy = h * 0.42f
-    drawDpad3D(dcx, dcy, s)
-
-    // === A BUTTON (blue dome) ===
-    drawButton3D(w * 0.80f, h * 0.30f, s * 1.5f, Color(0xFF2D6BD3), Color(0xFF5B9BF5))
-
-    // === B BUTTON (red dome) ===
-    drawButton3D(w * 0.66f, h * 0.52f, s * 1.5f, Color(0xFFC42B3C), Color(0xFFE85060))
-
-    // === START / SELECT (dark pills) ===
-    drawPill3D(w * 0.58f, h * 0.88f, s * 0.9f)
-    drawPill3D(w * 0.42f, h * 0.88f, s * 0.9f)
+@Composable
+private fun DpadSection(buttonStates: MutableMap<Int, Boolean>) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        DpadButton("\u25B2", buttonStates, 4) // UP
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            DpadButton("\u25C0", buttonStates, 6) // LEFT
+            Box(modifier = Modifier.size(44.dp).background(Color(0xFF2A2A32)))
+            DpadButton("\u25B6", buttonStates, 7) // RIGHT
+        }
+        DpadButton("\u25BC", buttonStates, 5) // DOWN
+    }
 }
 
-private fun DrawScope.drawDpad3D(cx: Float, cy: Float, s: Float) {
-    val dark = Color(0xFF2A2A32)
-    val mid = Color(0xFF353540)
-    val edge = Color(0xFF1E1E26)
-    val armW = s * 1.4f
-    val armH = s * 0.9f
-    val cr = 8f
+@Composable
+private fun ActionButton(
+    label: String,
+    color: Color,
+    buttonStates: MutableMap<Int, Boolean>,
+    buttonId: Int,
+) {
+    var pressed by remember { mutableStateOf(false) }
+    val scale = if (pressed) 0.92f else 1f
 
-    val arms = listOf(
-        Triple(cx - armH / 2, cy - armW - s * 0.1f, false),
-        Triple(cx - armH / 2, cy + s * 0.1f, false),
-        Triple(cx - armW - s * 0.1f, cy - armH / 2, true),
-        Triple(cx + s * 0.1f, cy - armH / 2, true),
-    )
-
-    // Drop shadow
-    for ((x, y, horizontal) in arms) {
-        val aw = if (horizontal) armW else armH
-        val ah = if (horizontal) armH else armW
-        drawRoundRect(
-            Color.Black.copy(alpha = 0.30f),
-            Offset(x + 2f, y + 3f),
-            Size(aw, ah),
-            androidx.compose.ui.geometry.CornerRadius(cr, cr),
+    Box(
+        modifier = Modifier
+            .size(64.dp * scale)
+            .shadow(
+                elevation = if (pressed) 2.dp else 8.dp,
+                shape = CircleShape,
+                ambientColor = Color.Black.copy(alpha = 0.4f),
+                spotColor = Color.Black.copy(alpha = 0.5f),
+            )
+            .clip(CircleShape)
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(
+                        color.copy(brightness = 1.3f),
+                        color,
+                        color.copy(brightness = 0.7f),
+                    ),
+                )
+            )
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        pressed = true
+                        buttonStates[buttonId] = true
+                        tryAwaitRelease()
+                        pressed = false
+                        buttonStates[buttonId] = false
+                    }
+                )
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label,
+            color = Color.White,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
         )
     }
+}
 
-    // Uniform gradient arms (darker at edges, lighter at center - equal all around)
-    for ((x, y, horizontal) in arms) {
-        val aw = if (horizontal) armW else armH
-        val ah = if (horizontal) armH else armW
-        drawRoundRect(
-            brush = Brush.radialGradient(
-                colors = listOf(mid, dark, edge),
-                center = Offset(x + aw / 2, y + ah / 2),
-                radius = maxOf(aw, ah) * 0.7f,
-            ),
-            topLeft = Offset(x, y),
-            size = Size(aw, ah),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr, cr),
-        )
+@Composable
+private fun DpadButton(
+    arrow: String,
+    buttonStates: MutableMap<Int, Boolean>,
+    buttonId: Int,
+) {
+    var pressed by remember { mutableStateOf(false) }
+    val color = if (pressed) Color(0xFF5A5A6A) else Color(0xFF3A3A44)
+    val scale = if (pressed) 0.92f else 1f
+
+    Box(
+        modifier = Modifier
+            .size((44.dp * scale))
+            .shadow(
+                elevation = if (pressed) 1.dp else 4.dp,
+                shape = RoundedCornerShape(6.dp),
+            )
+            .clip(RoundedCornerShape(6.dp))
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(
+                        color.copy(brightness = 1.2f),
+                        color,
+                        color.copy(brightness = 0.8f),
+                    ),
+                )
+            )
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        pressed = true
+                        buttonStates[buttonId] = true
+                        tryAwaitRelease()
+                        pressed = false
+                        buttonStates[buttonId] = false
+                    }
+                )
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(arrow, color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
     }
-
-    // Center hub
-    drawCircle(edge, armH * 0.6f, Offset(cx, cy))
-    drawCircle(
-        Brush.radialGradient(
-            colors = listOf(mid, dark, edge),
-            center = Offset(cx, cy),
-            radius = armH * 0.5f,
-        ),
-        armH * 0.5f,
-        Offset(cx, cy),
-    )
 }
 
-private fun DrawScope.drawButton3D(cx: Float, cy: Float, r: Float, baseColor: Color, lightColor: Color) {
-    // Drop shadow
-    drawCircle(Color.Black.copy(alpha = 0.30f), r, Offset(cx + 2f, cy + 3f))
+@Composable
+private fun SmallButton(
+    label: String,
+    color: Color,
+    buttonStates: MutableMap<Int, Boolean>,
+    buttonId: Int,
+) {
+    var pressed by remember { mutableStateOf(false) }
 
-    // Darker outer rim
-    drawCircle(baseColor.copy(alpha = 0.3f), r * 1.08f, Offset(cx, cy))
-
-    // Uniform radial gradient — equally 3D, no directional light
-    drawCircle(
-        Brush.radialGradient(
-            colors = listOf(lightColor, baseColor, Color.Black.copy(alpha = 0.3f)),
-            center = Offset(cx, cy),
-            radius = r * 1.1f,
-        ),
-        r,
-        Offset(cx, cy),
-    )
-
-    // Uniform inner shadow ring for depth (evenly darker at edges)
-    drawCircle(
-        Brush.radialGradient(
-            colors = listOf(Color.Transparent, Color.Transparent, Color.Black.copy(alpha = 0.20f)),
-            center = Offset(cx, cy),
-            radius = r,
-        ),
-        r,
-        Offset(cx, cy),
-    )
-}
-
-private fun DrawScope.drawPill3D(cx: Float, cy: Float, r: Float) {
-    val dark = Color(0xFF2A2A32)
-    val mid = Color(0xFF3A3A46)
-    val edge = Color(0xFF1E1E26)
-
-    // Shadow
-    drawCircle(Color.Black.copy(alpha = 0.30f), r, Offset(cx + 1f, cy + 2f))
-
-    // Uniform gradient
-    drawCircle(
-        Brush.radialGradient(
-            colors = listOf(mid, dark, edge),
-            center = Offset(cx, cy),
-            radius = r,
-        ),
-        r,
-        Offset(cx, cy),
-    )
+    Box(
+        modifier = Modifier
+            .size(width = 56.dp, height = 28.dp)
+            .shadow(
+                elevation = if (pressed) 1.dp else 3.dp,
+                shape = RoundedCornerShape(14.dp),
+            )
+            .clip(RoundedCornerShape(14.dp))
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(
+                        color.copy(brightness = 1.2f),
+                        color,
+                    ),
+                )
+            )
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        pressed = true
+                        buttonStates[buttonId] = true
+                        tryAwaitRelease()
+                        pressed = false
+                        buttonStates[buttonId] = false
+                    }
+                )
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp, fontWeight = FontWeight.Medium)
+    }
 }
 
 // === HELPERS ===
 
-@Composable
-private fun ErrorView(error: String, corePath: String, romPath: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
-            Button(onClick = {
-                platform.UIKit.UIPasteboard.generalPasteboard().string = "$error\nCore: $corePath\nROM: $romPath"
-            }) { Text("Copy Error") }
-            Spacer(Modifier.height(16.dp))
-            Text(error, color = Color(0xFFFF6B6B), style = MaterialTheme.typography.bodySmall)
-        }
-    }
-}
-
-@Composable
-private fun LoadingView() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator()
-            Text("Loading...", color = Color.White, modifier = Modifier.padding(top = 8.dp))
-        }
-    }
+private fun Color.copy(brightness: Float): Color {
+    return Color(
+        red = (red * brightness).coerceIn(0f, 1f),
+        green = (green * brightness).coerceIn(0f, 1f),
+        blue = (blue * brightness).coerceIn(0f, 1f),
+        alpha = alpha,
+    )
 }
 
 private fun convertToArgb(bytes: ByteArray, width: Int, height: Int, pitch: Int, format: PixelFormat): IntArray? {
@@ -371,8 +406,8 @@ private fun convertToArgb(bytes: ByteArray, width: Int, height: Int, pitch: Int,
                     val packed = lo or (hi shl 8)
                     val r5 = (packed shr 11) and 0x1F
                     val g6 = (packed shr 5) and 0x3F
-                    val b5 = packed and 0x1F
-                    (0xFF shl 24) or ((r5 shl 3 or (r5 shr 2)) shl 16) or ((g6 shl 2 or (g6 shr 4)) shl 8) or (b5 shl 3 or (b5 shr 2))
+                    val val5 = packed and 0x1F
+                    (0xFF shl 24) or ((r5 shl 3 or (r5 shr 2)) shl 16) or ((g6 shl 2 or (g6 shr 4)) shl 8) or (val5 shl 3 or (val5 shr 2))
                 }
                 PixelFormat.XRGB8888 -> {
                     val b = bytes[src].toInt() and 0xFF

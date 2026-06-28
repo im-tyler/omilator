@@ -29,7 +29,8 @@ targets:
         INFOPLIST_FILE: Info.plist
         MARKETING_VERSION: "0.2.0"
         CURRENT_PROJECT_VERSION: "1"
-        # Link against the Kotlin/Native framework built by Gradle
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         FRAMEWORK_SEARCH_PATHS:
           - "$(SRCROOT)/../ui-shared/build/bin/iosSimulatorArm64/debugFramework"
           - "$(SRCROOT)/../ui-shared/build/bin/iosArm64/debugFramework"

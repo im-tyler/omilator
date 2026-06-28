@@ -35,7 +35,10 @@ fun RootViewController(): UIViewController {
         val corePath = playingCore
 
         if (romPath != null && corePath != null) {
-            IosPlayerScreen(romPath = romPath, corePath = corePath)
+            IosPlayerScreen(romPath = romPath, corePath = corePath, onExit = {
+                playingRom = null
+                playingCore = null
+            })
         } else {
             OmilatorApp(
                 libraryViewModel = libraryViewModel,
