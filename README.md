@@ -1,5 +1,7 @@
 # Omilator
 
+![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Kotlin](https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF) ![Compose](https://img.shields.io/badge/UI-Compose_Multiplatform-4285F4) ![Status](https://img.shields.io/badge/status-scaffold-orange)
+
 A cross-platform libretro frontend, built with Kotlin Multiplatform + Compose Multiplatform.
 Targets: macOS, Windows, Linux desktop + iOS, Android mobile.
 
